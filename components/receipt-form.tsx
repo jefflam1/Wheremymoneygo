@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Trash2, Plus, Loader2, Image as ImageIcon, FileText } from "lucide-react";
+import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
 
 interface ReceiptItem {
   productName: string;
@@ -38,6 +41,7 @@ interface ReceiptFormData {
 
 interface ReceiptFormProps {
   userId: Id<"users">;
+  currency?: string;
   initialData?: Partial<ReceiptFormData>;
   imageId?: Id<"_storage">;
   fileMimeType?: string;
@@ -45,19 +49,9 @@ interface ReceiptFormProps {
   isScanned?: boolean;
 }
 
-const CATEGORIES = [
-  { value: "groceries", label: "Groceries" },
-  { value: "food", label: "Food & Dining" },
-  { value: "household", label: "Household" },
-  { value: "electronics", label: "Electronics" },
-  { value: "clothing", label: "Clothing" },
-  { value: "health", label: "Health & Beauty" },
-  { value: "entertainment", label: "Entertainment" },
-  { value: "other", label: "Other" },
-];
-
 export function ReceiptForm({
   userId,
+  currency = DEFAULT_CURRENCY,
   initialData,
   imageId,
   fileMimeType,
@@ -66,6 +60,16 @@ export function ReceiptForm({
 }: ReceiptFormProps) {
   const router = useRouter();
   const createReceipt = useMutation(api.receipts.createReceipt);
+  const categories = useQuery(api.categories.getCategories, { userId });
+  const seedDefaults = useMutation(api.categories.seedDefaultCategories);
+  const seededRef = useRef(false);
+
+  useEffect(() => {
+    if (categories && categories.length === 0 && !seededRef.current) {
+      seededRef.current = true;
+      seedDefaults({ userId });
+    }
+  }, [categories, userId, seedDefaults]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<ReceiptFormData>({
@@ -76,9 +80,9 @@ export function ReceiptForm({
       productName: item.productName ?? "",
       price: item.price ?? 0,
       quantity: item.quantity ?? 1,
-      category: item.category ?? "other",
+      category: item.category ?? "",
     })) ?? [
-      { productName: "", price: 0, quantity: 1, category: "other" },
+      { productName: "", price: 0, quantity: 1, category: "" },
     ],
     subtotal: initialData?.subtotal ?? undefined,
     tax: initialData?.tax ?? undefined,
@@ -107,7 +111,7 @@ export function ReceiptForm({
       ...prev,
       items: [
         ...prev.items,
-        { productName: "", price: 0, quantity: 1, category: "other" },
+        { productName: "", price: 0, quantity: 1, category: "" },
       ],
     }));
   };
@@ -147,6 +151,7 @@ export function ReceiptForm({
         imageId: imageId ?? undefined,
         fileMimeType: fileMimeType || undefined,
         paymentMethod: formData.paymentMethod || undefined,
+        currency,
         isManualEntry: !isScanned,
         items: formData.items
           .filter((item) => item.productName.trim() !== "")
@@ -311,14 +316,25 @@ export function ReceiptForm({
                     onValueChange={(value) => value && updateItem(index, "category", value)}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
-                      {CATEGORIES.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </SelectItem>
-                      ))}
+                      {categories?.map((cat) =>
+                        cat.children.length > 0 ? (
+                          <SelectGroup key={cat._id}>
+                            <SelectLabel>{cat.name}</SelectLabel>
+                            {cat.children.map((sub) => (
+                              <SelectItem key={sub._id} value={sub.slug}>
+                                {sub.name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ) : (
+                          <SelectItem key={cat._id} value={cat.slug}>
+                            {cat.name}
+                          </SelectItem>
+                        )
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -405,7 +421,7 @@ export function ReceiptForm({
           <div className="flex justify-between items-center pt-4 border-t">
             <span className="text-muted-foreground">Calculated Total:</span>
             <span className="text-xl font-bold">
-              ${calculateTotal().toFixed(2)}
+              {formatMoney(calculateTotal(), currency)}
             </span>
           </div>
         </CardContent>

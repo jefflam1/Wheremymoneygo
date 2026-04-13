@@ -1,7 +1,8 @@
 "use client";
 
-import { use } from "react";
+import { use, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -18,6 +19,7 @@ import {
   Calendar,
   DollarSign,
 } from "lucide-react";
+import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
 
 export default function ProductDetailPage({
   params,
@@ -26,10 +28,28 @@ export default function ProductDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const { user } = useCurrentUser();
+  const currency = user?.currency ?? DEFAULT_CURRENCY;
 
   const product = useQuery(api.products.getProductById, {
     productId: id as Id<"products">,
   });
+  const categories = useQuery(
+    api.categories.getCategories,
+    product?.userId ? { userId: product.userId } : "skip"
+  );
+
+  const categoryLabels = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!categories) return map;
+    for (const cat of categories) {
+      map.set(cat.slug, cat.name);
+      for (const sub of cat.children) {
+        map.set(sub.slug, `${cat.name} > ${sub.name}`);
+      }
+    }
+    return map;
+  }, [categories]);
 
   if (product === undefined) {
     return <ProductDetailSkeleton />;
@@ -75,7 +95,7 @@ export default function ProductDetailPage({
               <h1 className="text-2xl font-bold">{product.name}</h1>
               {product.category && (
                 <Badge variant="secondary" className="mt-1">
-                  {product.category}
+                  {categoryLabels.get(product.category) || product.category}
                 </Badge>
               )}
             </div>
@@ -87,18 +107,18 @@ export default function ProductDetailPage({
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Average Price"
-          value={`$${product.stats.avgPrice.toFixed(2)}`}
+          value={formatMoney(product.stats.avgPrice, currency)}
           icon={DollarSign}
         />
         <StatsCard
           title="Lowest Price"
-          value={`$${product.stats.lowestPrice.toFixed(2)}`}
+          value={formatMoney(product.stats.lowestPrice, currency)}
           icon={TrendingDown}
           className="text-green-600"
         />
         <StatsCard
           title="Highest Price"
-          value={`$${product.stats.highestPrice.toFixed(2)}`}
+          value={formatMoney(product.stats.highestPrice, currency)}
           icon={TrendingUp}
           className="text-red-500"
         />
@@ -147,11 +167,11 @@ export default function ProductDetailPage({
                         <span
                           className={`font-semibold ${isBest ? "text-green-600" : ""}`}
                         >
-                          ${store.latestPrice.toFixed(2)}
+                          {formatMoney(store.latestPrice, currency)}
                         </span>
                         {store.lowestPrice !== store.latestPrice && (
                           <span className="text-xs text-muted-foreground ml-2">
-                            (low: ${store.lowestPrice.toFixed(2)})
+                            (low: {formatMoney(store.lowestPrice, currency)})
                           </span>
                         )}
                       </div>
@@ -189,12 +209,12 @@ export default function ProductDetailPage({
                 {priceTrend > 0 ? (
                   <>
                     <TrendingUp className="h-3 w-3 mr-1" />
-                    +${priceTrend.toFixed(2)}
+                    +{formatMoney(priceTrend, currency)}
                   </>
                 ) : (
                   <>
                     <TrendingDown className="h-3 w-3 mr-1" />
-                    -${Math.abs(priceTrend).toFixed(2)}
+                    -{formatMoney(Math.abs(priceTrend), currency)}
                   </>
                 )}
               </Badge>
@@ -223,7 +243,7 @@ export default function ProductDetailPage({
                       </p>
                     </div>
                   </div>
-                  <span className="font-semibold">${entry.price.toFixed(2)}</span>
+                  <span className="font-semibold">{formatMoney(entry.price, currency)}</span>
                 </div>
               ))}
             </div>

@@ -19,6 +19,7 @@ import {
   Camera,
   Edit,
 } from "lucide-react";
+import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
 
 export default function ReceiptsPage() {
   const { user, isLoading: userLoading } = useCurrentUser();
@@ -44,6 +45,8 @@ export default function ReceiptsPage() {
       </div>
     );
   }
+
+  const currency = user.currency ?? DEFAULT_CURRENCY;
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -148,7 +151,7 @@ export default function ReceiptsPage() {
                       </div>
                     </div>
                     <p className="text-lg font-bold shrink-0">
-                      ${receipt.total.toFixed(2)}
+                      {formatMoney(receipt.total, receipt.currency ?? currency)}
                     </p>
                   </div>
                 </CardContent>

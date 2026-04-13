@@ -7,6 +7,7 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
+    currency: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_clerk_id", ["clerkId"]),
 
@@ -21,6 +22,7 @@ export default defineSchema({
     imageId: v.optional(v.id("_storage")),
     fileMimeType: v.optional(v.string()),
     paymentMethod: v.optional(v.string()),
+    currency: v.optional(v.string()),
     isManualEntry: v.boolean(),
     createdAt: v.number(),
   })
@@ -55,6 +57,18 @@ export default defineSchema({
       searchField: "name",
       filterFields: ["userId"],
     }),
+
+  categories: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    slug: v.string(),
+    parentId: v.optional(v.id("categories")),
+    sortOrder: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_parent", ["userId", "parentId"])
+    .index("by_user_slug", ["userId", "slug"]),
 
   priceHistory: defineTable({
     productId: v.id("products"),

@@ -13,6 +13,7 @@ export const createReceipt = mutation({
     imageId: v.optional(v.id("_storage")),
     fileMimeType: v.optional(v.string()),
     paymentMethod: v.optional(v.string()),
+    currency: v.optional(v.string()),
     isManualEntry: v.boolean(),
     items: v.array(
       v.object({

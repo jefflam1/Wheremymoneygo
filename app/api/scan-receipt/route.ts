@@ -5,7 +5,14 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const RECEIPT_SCAN_PROMPT = `Analyze this receipt image and extract the following information. Return ONLY valid JSON with no additional text or markdown formatting.
+const DEFAULT_CATEGORIES = "groceries, electronics, clothing, food, household, health, entertainment, other";
+
+function buildPrompt(categorySlugs?: string[]): string {
+  const categoryList = categorySlugs?.length
+    ? categorySlugs.join(", ")
+    : DEFAULT_CATEGORIES;
+
+  return `Analyze this receipt image and extract the following information. Return ONLY valid JSON with no additional text or markdown formatting.
 
 {
   "storeName": "string - the store or business name",
@@ -16,7 +23,7 @@ const RECEIPT_SCAN_PROMPT = `Analyze this receipt image and extract the followin
       "productName": "string - normalized readable product name (e.g., 'BNLS CHKN BRST' becomes 'Boneless Chicken Breast')",
       "price": "number - unit price as a decimal",
       "quantity": "number - quantity purchased, default to 1 if not specified",
-      "category": "string - one of: groceries, electronics, clothing, food, household, health, entertainment, other"
+      "category": "string - one of: ${categoryList}"
     }
   ],
   "subtotal": "number or null",
@@ -31,6 +38,7 @@ Important:
 - If the receipt is unclear or unreadable in parts, use your best judgment
 - Ensure all prices are positive numbers
 - If you cannot determine a required field, use null`;
+}
 
 type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
@@ -40,7 +48,7 @@ function isPdf(mimeType: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    const { image, mimeType } = await request.json();
+    const { image, mimeType, categorySlugs } = await request.json();
 
     if (!image) {
       return NextResponse.json(
@@ -81,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     contentBlocks.push({
       type: "text",
-      text: RECEIPT_SCAN_PROMPT,
+      text: buildPrompt(categorySlugs),
     });
 
     const response = await anthropic.messages.create({

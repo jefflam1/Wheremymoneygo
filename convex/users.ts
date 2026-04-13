@@ -56,3 +56,13 @@ export const getUserById = query({
     return await ctx.db.get(args.userId);
   },
 });
+
+export const updateCurrency = mutation({
+  args: {
+    userId: v.id("users"),
+    currency: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, { currency: args.currency });
+  },
+});

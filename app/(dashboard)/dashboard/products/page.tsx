@@ -18,6 +18,7 @@ import {
   ArrowRight,
   DollarSign,
 } from "lucide-react";
+import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
 
 export default function ProductsPage() {
   const { user, isLoading: userLoading } = useCurrentUser();
@@ -48,6 +49,8 @@ export default function ProductsPage() {
       </div>
     );
   }
+
+  const currency = user.currency ?? DEFAULT_CURRENCY;
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -120,7 +123,7 @@ export default function ProductsPage() {
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Latest:</span>
                           <span className="font-medium">
-                            ${product.latestPrice.toFixed(2)}
+                            {formatMoney(product.latestPrice, currency)}
                           </span>
                         </div>
                         {product.priceCount > 1 && (
@@ -128,13 +131,13 @@ export default function ProductsPage() {
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Lowest:</span>
                               <span className="text-green-600 font-medium">
-                                ${product.lowestPrice.toFixed(2)}
+                                {formatMoney(product.lowestPrice, currency)}
                               </span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Highest:</span>
                               <span className="text-red-500 font-medium">
-                                ${product.highestPrice.toFixed(2)}
+                                {formatMoney(product.highestPrice, currency)}
                               </span>
                             </div>
                           </>
@@ -206,7 +209,7 @@ export default function ProductsPage() {
                             Save {comparison.savingsPercent.toFixed(0)}%
                           </Badge>
                           <p className="text-xs text-muted-foreground mt-1">
-                            up to ${comparison.potentialSavings.toFixed(2)}
+                            up to {formatMoney(comparison.potentialSavings, currency)}
                           </p>
                         </div>
                       </div>
@@ -242,7 +245,7 @@ export default function ProductsPage() {
                                   : ""
                               }
                             >
-                              ${store.avgPrice.toFixed(2)}
+                              {formatMoney(store.avgPrice, currency)}
                             </span>
                           </div>
                         ))}

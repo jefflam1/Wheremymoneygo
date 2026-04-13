@@ -2,6 +2,7 @@
 
 import { use } from "react";
 import { useRouter } from "next/navigation";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -31,7 +32,8 @@ import {
   Edit,
   Image as ImageIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
 
 export default function ReceiptDetailPage({
   params,
@@ -40,12 +42,31 @@ export default function ReceiptDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const { user } = useCurrentUser();
   const [isDeleting, setIsDeleting] = useState(false);
+  const currency = user?.currency ?? DEFAULT_CURRENCY;
 
   const receipt = useQuery(api.receipts.getReceiptById, {
     receiptId: id as Id<"receipts">,
   });
+  const categories = useQuery(
+    api.categories.getCategories,
+    receipt?.userId ? { userId: receipt.userId } : "skip"
+  );
   const deleteReceipt = useMutation(api.receipts.deleteReceipt);
+
+  // Build slug -> display label map (e.g. "breakfast" -> "Food > Breakfast")
+  const categoryLabels = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!categories) return map;
+    for (const cat of categories) {
+      map.set(cat.slug, cat.name);
+      for (const sub of cat.children) {
+        map.set(sub.slug, `${cat.name} > ${sub.name}`);
+      }
+    }
+    return map;
+  }, [categories]);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -219,14 +240,14 @@ export default function ReceiptDetailPage({
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     {item.category && (
                       <Badge variant="outline" className="text-xs">
-                        {item.category}
+                        {categoryLabels.get(item.category) || item.category}
                       </Badge>
                     )}
                     {item.quantity > 1 && <span>Qty: {item.quantity}</span>}
                   </div>
                 </div>
                 <p className="font-semibold shrink-0">
-                  ${(item.price * item.quantity).toFixed(2)}
+                  {formatMoney(item.price * item.quantity, currency)}
                 </p>
               </div>
             ))}
@@ -241,18 +262,18 @@ export default function ReceiptDetailPage({
             {receipt.subtotal !== undefined && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span>${receipt.subtotal.toFixed(2)}</span>
+                <span>{formatMoney(receipt.subtotal, currency)}</span>
               </div>
             )}
             {receipt.tax !== undefined && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Tax</span>
-                <span>${receipt.tax.toFixed(2)}</span>
+                <span>{formatMoney(receipt.tax, currency)}</span>
               </div>
             )}
             <div className="flex justify-between text-lg font-bold pt-2 border-t">
               <span>Total</span>
-              <span>${receipt.total.toFixed(2)}</span>
+              <span>{formatMoney(receipt.total, currency)}</span>
             </div>
           </div>
         </CardContent>

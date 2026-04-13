@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { ReceiptCamera } from "@/components/receipt-camera";
@@ -33,6 +33,10 @@ type Mode = "choose" | "camera" | "scanning" | "form";
 export default function NewReceiptPage() {
   const { user, isLoading: userLoading } = useCurrentUser();
   const generateUploadUrl = useMutation(api.receipts.generateUploadUrl);
+  const categories = useQuery(
+    api.categories.getCategories,
+    user?._id ? { userId: user._id } : "skip"
+  );
 
   const [mode, setMode] = useState<Mode>("choose");
   const [scannedData, setScannedData] = useState<ScannedData | null>(null);
@@ -66,11 +70,25 @@ export default function NewReceiptPage() {
         setPreviewUrl(capturePreviewUrl);
       }
 
+      // Build category slugs for the AI prompt
+      const categorySlugs: string[] = [];
+      if (categories) {
+        for (const cat of categories) {
+          if (cat.children.length > 0) {
+            for (const sub of cat.children) {
+              categorySlugs.push(sub.slug);
+            }
+          } else {
+            categorySlugs.push(cat.slug);
+          }
+        }
+      }
+
       // Scan receipt with Claude
       const scanResponse = await fetch("/api/scan-receipt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: imageData, mimeType }),
+        body: JSON.stringify({ image: imageData, mimeType, categorySlugs }),
       });
 
       const result = await scanResponse.json();
@@ -150,6 +168,7 @@ export default function NewReceiptPage() {
 
         <ReceiptForm
           userId={user._id}
+          currency={user.currency ?? "GBP"}
           initialData={scannedData ?? undefined}
           imageId={imageId}
           fileMimeType={fileMimeType}

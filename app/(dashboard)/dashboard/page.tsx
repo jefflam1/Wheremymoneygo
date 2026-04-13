@@ -16,6 +16,7 @@ import {
   PlusCircle,
   ArrowRight,
 } from "lucide-react";
+import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
 
 export default function DashboardPage() {
   const { user, isLoading: userLoading } = useCurrentUser();
@@ -42,6 +43,8 @@ export default function DashboardPage() {
     );
   }
 
+  const currency = user.currency ?? DEFAULT_CURRENCY;
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
@@ -62,13 +65,13 @@ export default function DashboardPage() {
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Total Spent"
-          value={stats ? `$${stats.totalSpent.toFixed(2)}` : "$0.00"}
+          value={stats ? formatMoney(stats.totalSpent, currency) : formatMoney(0, currency)}
           icon={DollarSign}
           loading={!stats}
         />
         <StatsCard
           title="This Month"
-          value={stats ? `$${stats.thisMonthTotal.toFixed(2)}` : "$0.00"}
+          value={stats ? formatMoney(stats.thisMonthTotal, currency) : formatMoney(0, currency)}
           icon={stats && stats.monthlyChange >= 0 ? TrendingUp : TrendingDown}
           subtitle={
             stats
@@ -89,7 +92,7 @@ export default function DashboardPage() {
           icon={Store}
           subtitle={
             stats?.topStores[0]
-              ? `$${stats.topStores[0].total.toFixed(2)} spent`
+              ? `${formatMoney(stats.topStores[0].total, currency)} spent`
               : undefined
           }
           loading={!stats}
@@ -140,7 +143,7 @@ export default function DashboardPage() {
                       </p>
                     </div>
                   </div>
-                  <p className="font-semibold">${receipt.total.toFixed(2)}</p>
+                  <p className="font-semibold">{formatMoney(receipt.total, currency)}</p>
                 </Link>
               ))}
             </div>
@@ -165,7 +168,7 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-medium">{store.name}</span>
                       <span className="text-sm font-semibold">
-                        ${store.total.toFixed(2)}
+                        {formatMoney(store.total, currency)}
                       </span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
