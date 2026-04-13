@@ -10,8 +10,10 @@
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "convex": "^1.35.1",
+        "libheif-js": "^1.19.8",
         "lucide-react": "^1.8.0",
         "next": "16.2.3",
+        "next-themes": "^0.4.6",
         "react": "19.2.4",
         "react-dom": "19.2.4",
         "shadcn": "^4.2.0",
@@ -947,6 +949,8 @@
 
     "levn": ["levn@0.4.1", "", { "dependencies": { "prelude-ls": "^1.2.1", "type-check": "~0.4.0" } }, "sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ=="],
 
+    "libheif-js": ["libheif-js@1.19.8", "", {}, "sha512-vQJWusIxO7wavpON1dusciL8Go9jsIQ+EUrckauFYAiSTjcmLAsuJh3SszLpvkwPci3JcL41ek2n+LUZGFpPIQ=="],
+
     "lightningcss": ["lightningcss@1.32.0", "", { "dependencies": { "detect-libc": "^2.0.3" }, "optionalDependencies": { "lightningcss-android-arm64": "1.32.0", "lightningcss-darwin-arm64": "1.32.0", "lightningcss-darwin-x64": "1.32.0", "lightningcss-freebsd-x64": "1.32.0", "lightningcss-linux-arm-gnueabihf": "1.32.0", "lightningcss-linux-arm64-gnu": "1.32.0", "lightningcss-linux-arm64-musl": "1.32.0", "lightningcss-linux-x64-gnu": "1.32.0", "lightningcss-linux-x64-musl": "1.32.0", "lightningcss-win32-arm64-msvc": "1.32.0", "lightningcss-win32-x64-msvc": "1.32.0" } }, "sha512-NXYBzinNrblfraPGyrbPoD19C1h9lfI/1mzgWYvXUTe414Gz/X1FD2XBZSZM7rRTrMA8JL3OtAaGifrIKhQ5yQ=="],
 
     "lightningcss-android-arm64": ["lightningcss-android-arm64@1.32.0", "", { "os": "android", "cpu": "arm64" }, "sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg=="],
@@ -1026,6 +1030,8 @@
     "negotiator": ["negotiator@1.0.0", "", {}, "sha512-8Ofs/AUQh8MaEcrlq5xOX0CQ9ypTF5dl78mjlMNfOK08fzpgTHQRQPBxcPlEtIw0yRpws+Zo/3r+5WRby7u3Gg=="],
 
     "next": ["next@16.2.3", "", { "dependencies": { "@next/env": "16.2.3", "@swc/helpers": "0.5.15", "baseline-browser-mapping": "^2.9.19", "caniuse-lite": "^1.0.30001579", "postcss": "8.4.31", "styled-jsx": "5.1.6" }, "optionalDependencies": { "@next/swc-darwin-arm64": "16.2.3", "@next/swc-darwin-x64": "16.2.3", "@next/swc-linux-arm64-gnu": "16.2.3", "@next/swc-linux-arm64-musl": "16.2.3", "@next/swc-linux-x64-gnu": "16.2.3", "@next/swc-linux-x64-musl": "16.2.3", "@next/swc-win32-arm64-msvc": "16.2.3", "@next/swc-win32-x64-msvc": "16.2.3", "sharp": "^0.34.5" }, "peerDependencies": { "@opentelemetry/api": "^1.1.0", "@playwright/test": "^1.51.1", "babel-plugin-react-compiler": "*", "react": "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0", "react-dom": "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0", "sass": "^1.3.0" }, "optionalPeers": ["@opentelemetry/api", "@playwright/test", "babel-plugin-react-compiler", "sass"], "bin": { "next": "dist/bin/next" } }, "sha512-9V3zV4oZFza3PVev5/poB9g0dEafVcgNyQ8eTRop8GvxZjV2G15FC5ARuG1eFD42QgeYkzJBJzHghNP8Ad9xtA=="],
+
+    "next-themes": ["next-themes@0.4.6", "", { "peerDependencies": { "react": "^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc", "react-dom": "^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc" } }, "sha512-pZvgD5L0IEvX5/9GWyHMf3m8BKiVQwsCMHfoFosXtXBMnaS0ZnIJ9ST4b4NqLVKDEm8QBxoNNGNaBv2JNF6XNA=="],
 
     "node-domexception": ["node-domexception@1.0.0", "", {}, "sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ=="],
 

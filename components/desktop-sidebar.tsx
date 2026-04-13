@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: Home },
@@ -81,6 +82,7 @@ export function DesktopSidebar() {
               <p className="text-sm font-medium truncate">Account</p>
               <p className="text-xs text-muted-foreground">Manage settings</p>
             </div>
+            <ThemeToggle />
           </div>
         </div>
       </div>
