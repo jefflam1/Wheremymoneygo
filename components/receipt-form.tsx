@@ -42,6 +42,7 @@ interface ReceiptFormData {
 interface ReceiptFormProps {
   userId: Id<"users">;
   currency?: string;
+  receiptId?: Id<"receipts">;
   initialData?: Partial<ReceiptFormData>;
   imageId?: Id<"_storage">;
   fileMimeType?: string;
@@ -52,6 +53,7 @@ interface ReceiptFormProps {
 export function ReceiptForm({
   userId,
   currency = DEFAULT_CURRENCY,
+  receiptId,
   initialData,
   imageId,
   fileMimeType,
@@ -59,7 +61,9 @@ export function ReceiptForm({
   isScanned = false,
 }: ReceiptFormProps) {
   const router = useRouter();
+  const isEditMode = !!receiptId;
   const createReceipt = useMutation(api.receipts.createReceipt);
+  const updateReceipt = useMutation(api.receipts.updateReceipt);
   const categories = useQuery(api.categories.getCategories, { userId });
   const seedDefaults = useMutation(api.categories.seedDefaultCategories);
   const seededRef = useRef(false);
@@ -139,20 +143,16 @@ export function ReceiptForm({
 
     try {
       const dateTimestamp = new Date(formData.date).getTime();
-
-      await createReceipt({
+      const commonArgs = {
         userId,
         storeName: formData.storeName,
         storeAddress: formData.storeAddress || undefined,
         date: dateTimestamp,
         subtotal: formData.subtotal ?? undefined,
         tax: formData.tax ?? undefined,
-        total: formData.total || calculateTotal(),
-        imageId: imageId ?? undefined,
-        fileMimeType: fileMimeType || undefined,
+        total: calculateTotal(),
         paymentMethod: formData.paymentMethod || undefined,
         currency,
-        isManualEntry: !isScanned,
         items: formData.items
           .filter((item) => item.productName.trim() !== "")
           .map((item) => ({
@@ -161,9 +161,20 @@ export function ReceiptForm({
             quantity: item.quantity ?? 1,
             category: item.category || undefined,
           })),
-      });
+      };
 
-      router.push("/dashboard/receipts");
+      if (isEditMode) {
+        await updateReceipt({ receiptId, ...commonArgs });
+        router.push(`/dashboard/receipts/${receiptId}`);
+      } else {
+        await createReceipt({
+          ...commonArgs,
+          imageId: imageId ?? undefined,
+          fileMimeType: fileMimeType || undefined,
+          isManualEntry: !isScanned,
+        });
+        router.push("/dashboard/receipts");
+      }
     } catch (error) {
       console.error("Failed to create receipt:", error);
     } finally {
@@ -392,10 +403,8 @@ export function ReceiptForm({
                 type="number"
                 step="0.01"
                 min="0"
-                value={formData.total || ""}
-                onChange={(e) =>
-                  updateField("total", parseFloat(e.target.value) || 0)
-                }
+                value={calculateTotal() || ""}
+                readOnly
                 placeholder="0.00"
                 required
               />
@@ -439,7 +448,7 @@ export function ReceiptForm({
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          Save Receipt
+          {isEditMode ? "Update Receipt" : "Save Receipt"}
         </Button>
       </div>
     </form>

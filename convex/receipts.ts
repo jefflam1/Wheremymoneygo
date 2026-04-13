@@ -144,6 +144,104 @@ export const getReceiptById = query({
   },
 });
 
+export const updateReceipt = mutation({
+  args: {
+    receiptId: v.id("receipts"),
+    userId: v.id("users"),
+    storeName: v.string(),
+    storeAddress: v.optional(v.string()),
+    date: v.number(),
+    subtotal: v.optional(v.number()),
+    tax: v.optional(v.number()),
+    total: v.number(),
+    paymentMethod: v.optional(v.string()),
+    currency: v.optional(v.string()),
+    items: v.array(
+      v.object({
+        productName: v.string(),
+        price: v.number(),
+        quantity: v.number(),
+        category: v.optional(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const { receiptId, items, userId, ...receiptData } = args;
+
+    const existing = await ctx.db.get(receiptId);
+    if (!existing) throw new Error("Receipt not found");
+
+    // Update the receipt
+    await ctx.db.patch(receiptId, receiptData);
+
+    // Delete old items and their price history
+    const oldItems = await ctx.db
+      .query("receiptItems")
+      .withIndex("by_receipt", (q) => q.eq("receiptId", receiptId))
+      .collect();
+
+    for (const oldItem of oldItems) {
+      const priceHistories = await ctx.db
+        .query("priceHistory")
+        .filter((q) => q.eq(q.field("receiptItemId"), oldItem._id))
+        .collect();
+      for (const ph of priceHistories) {
+        await ctx.db.delete(ph._id);
+      }
+      await ctx.db.delete(oldItem._id);
+    }
+
+    // Re-create items and price history
+    for (const item of items) {
+      const normalizedName = item.productName.toLowerCase().trim();
+
+      let product = await ctx.db
+        .query("products")
+        .withIndex("by_user_normalized", (q) =>
+          q.eq("userId", userId).eq("normalizedName", normalizedName)
+        )
+        .first();
+
+      let productId = product?._id;
+
+      if (!product) {
+        productId = await ctx.db.insert("products", {
+          name: item.productName,
+          normalizedName,
+          category: item.category,
+          userId,
+          createdAt: Date.now(),
+        });
+      }
+
+      const receiptItemId = await ctx.db.insert("receiptItems", {
+        receiptId,
+        userId,
+        productName: item.productName,
+        normalizedName,
+        price: item.price,
+        quantity: item.quantity,
+        category: item.category,
+        productId,
+      });
+
+      if (productId) {
+        await ctx.db.insert("priceHistory", {
+          productId,
+          receiptId,
+          receiptItemId,
+          storeName: args.storeName,
+          price: item.price,
+          date: args.date,
+          userId,
+        });
+      }
+    }
+
+    return receiptId;
+  },
+});
+
 export const deleteReceipt = mutation({
   args: { receiptId: v.id("receipts") },
   handler: async (ctx, args) => {

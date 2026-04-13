@@ -30,8 +30,10 @@ import {
   Trash2,
   Camera,
   Edit,
+  Pencil,
   Image as ImageIcon,
 } from "lucide-react";
+import Link from "next/link";
 import { useState, useMemo } from "react";
 import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
 
@@ -107,10 +109,14 @@ export default function ReceiptDetailPage({
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <AlertDialog>
-          <AlertDialogTrigger render={<Button variant="outline" size="icon" className="text-destructive" />}>
-            <Trash2 className="h-4 w-4" />
-          </AlertDialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" render={<Link href={`/dashboard/receipts/${id}/edit`} />}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger render={<Button variant="outline" size="icon" className="text-destructive" />}>
+              <Trash2 className="h-4 w-4" />
+            </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Receipt</AlertDialogTitle>
@@ -131,6 +137,7 @@ export default function ReceiptDetailPage({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        </div>
       </div>
 
       {/* Store Info */}
