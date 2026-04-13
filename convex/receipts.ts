@@ -118,6 +118,39 @@ export const getReceipts = query({
   },
 });
 
+export const getReceiptsWithItems = query({
+  args: {
+    userId: v.id("users"),
+    limit: v.optional(v.number()),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 200;
+    let receipts = await ctx.db
+      .query("receipts")
+      .withIndex("by_user_date", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .take(limit);
+
+    if (args.startDate !== undefined && args.endDate !== undefined) {
+      receipts = receipts.filter(
+        (r) => r.date >= args.startDate! && r.date < args.endDate!
+      );
+    }
+
+    return await Promise.all(
+      receipts.map(async (receipt) => {
+        const items = await ctx.db
+          .query("receiptItems")
+          .withIndex("by_receipt", (q) => q.eq("receiptId", receipt._id))
+          .collect();
+        return { ...receipt, items };
+      })
+    );
+  },
+});
+
 export const getReceiptById = query({
   args: { receiptId: v.id("receipts") },
   handler: async (ctx, args) => {
