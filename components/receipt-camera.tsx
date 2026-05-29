@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { Camera, Upload, X, RotateCcw, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -41,13 +41,22 @@ export function ReceiptCamera({ onCapture, onCancel }: ReceiptCameraProps) {
       });
       setStream(mediaStream);
       setIsCameraActive(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
     } catch {
       setError("Unable to access camera. Please allow camera permissions or upload an image instead.");
     }
   }, []);
+
+  // Attach the stream once the <video> element has actually rendered.
+  // Setting srcObject inside startCamera fails because videoRef is still null
+  // at that point — the element only mounts after isCameraActive flips to true.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !stream) return;
+    video.srcObject = stream;
+    video.play().catch(() => {
+      // iOS Safari sometimes rejects play() until a user gesture — safe to ignore.
+    });
+  }, [stream, isCameraActive]);
 
   const stopCamera = useCallback(() => {
     if (stream) {
@@ -224,6 +233,7 @@ export function ReceiptCamera({ onCapture, onCancel }: ReceiptCameraProps) {
             ref={videoRef}
             autoPlay
             playsInline
+            muted
             className="absolute inset-0 w-full h-full object-cover"
           />
         )}
