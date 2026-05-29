@@ -27,8 +27,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -51,6 +56,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  MoreVertical,
 } from "lucide-react";
 import { CURRENCIES, DEFAULT_CURRENCY, getCurrency } from "@/lib/currencies";
 
@@ -66,6 +72,11 @@ function CategoryManager({ userId }: { userId: Id<"users"> }) {
   const [editingId, setEditingId] = useState<Id<"categories"> | null>(null);
   const [parentIdForNew, setParentIdForNew] = useState<Id<"categories"> | undefined>();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: Id<"categories">;
+    name: string;
+    childCount: number;
+  } | null>(null);
 
   const seededRef = useRef(false);
 
@@ -120,7 +131,7 @@ function CategoryManager({ userId }: { userId: Id<"users"> }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {categories.map((cat) => {
         const isExpanded = expandedIds.has(cat._id);
         const hasChildren = cat.children.length > 0;
@@ -128,125 +139,171 @@ function CategoryManager({ userId }: { userId: Id<"users"> }) {
         return (
           <div key={cat._id}>
             {/* Parent category row */}
-            <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 group">
+            <div className="flex items-center gap-1 rounded-lg hover:bg-muted/50 group">
               <button
                 onClick={() => hasChildren && toggleExpand(cat._id)}
-                className="w-5 h-5 flex items-center justify-center shrink-0"
+                className="flex flex-1 items-center gap-2 py-2.5 pl-2 text-left min-w-0"
               >
-                {hasChildren ? (
-                  isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <span className="w-5 h-5 flex items-center justify-center shrink-0">
+                  {hasChildren ? (
+                    isExpanded ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )
                   ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  )
-                ) : (
-                  <span className="w-4" />
+                    <span className="w-4" />
+                  )}
+                </span>
+                <span className="flex-1 font-medium text-sm truncate">{cat.name}</span>
+                {hasChildren && (
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {cat.children.length}
+                  </span>
                 )}
               </button>
-              <span className="flex-1 font-medium text-sm">{cat.name}</span>
-              {hasChildren && (
-                <span className="text-xs text-muted-foreground mr-1">
-                  {cat.children.length}
-                </span>
-              )}
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => openCreateDialog(cat._id)}
-                className="opacity-0 group-hover:opacity-100"
-                title="Add sub-category"
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => openEditDialog(cat._id, cat.name)}
-                className="opacity-0 group-hover:opacity-100"
-              >
-                <Pencil className="h-3 w-3" />
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger
+
+              {/* Desktop: hover-revealed inline actions */}
+              <div className="hidden md:flex items-center gap-1 pr-1">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => openCreateDialog(cat._id)}
+                  className="opacity-0 group-hover:opacity-100"
+                  title="Add sub-category"
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => openEditDialog(cat._id, cat.name)}
+                  className="opacity-0 group-hover:opacity-100"
+                  title="Rename"
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() =>
+                    setDeleteTarget({
+                      id: cat._id,
+                      name: cat.name,
+                      childCount: cat.children.length,
+                    })
+                  }
+                  className="opacity-0 group-hover:opacity-100 text-destructive"
+                  title="Delete"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+
+              {/* Mobile: kebab menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger
                   render={
                     <Button
                       variant="ghost"
-                      size="icon-xs"
-                      className="opacity-0 group-hover:opacity-100 text-destructive"
+                      size="icon"
+                      className="shrink-0 text-muted-foreground md:hidden"
+                      aria-label={`Actions for ${cat.name}`}
                     />
                   }
                 >
-                  <Trash2 className="h-3 w-3" />
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete &ldquo;{cat.name}&rdquo;?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {hasChildren
-                        ? `This will also delete ${cat.children.length} sub-categor${cat.children.length === 1 ? "y" : "ies"}.`
-                        : "This category will be permanently deleted."}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => deleteCategory({ categoryId: cat._id })}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                  <MoreVertical className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => openCreateDialog(cat._id)}>
+                    <Plus className="h-4 w-4" />
+                    Add sub-category
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openEditDialog(cat._id, cat.name)}>
+                    <Pencil className="h-4 w-4" />
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() =>
+                      setDeleteTarget({
+                        id: cat._id,
+                        name: cat.name,
+                        childCount: cat.children.length,
+                      })
+                    }
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Sub-categories */}
             {hasChildren && isExpanded && (
-              <div className="ml-7 border-l pl-3 space-y-1">
+              <div className="ml-7 border-l pl-3">
                 {cat.children.map((sub) => (
                   <div
                     key={sub._id}
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 group"
+                    className="flex items-center gap-1 rounded-lg hover:bg-muted/50 group"
                   >
-                    <span className="flex-1 text-sm">{sub.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => openEditDialog(sub._id, sub.name)}
-                      className="opacity-0 group-hover:opacity-100"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger
+                    <span className="flex-1 text-sm truncate py-2.5 pl-2">{sub.name}</span>
+
+                    {/* Desktop: hover-revealed inline actions */}
+                    <div className="hidden md:flex items-center gap-1 pr-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => openEditDialog(sub._id, sub.name)}
+                        className="opacity-0 group-hover:opacity-100"
+                        title="Rename"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() =>
+                          setDeleteTarget({ id: sub._id, name: sub.name, childCount: 0 })
+                        }
+                        className="opacity-0 group-hover:opacity-100 text-destructive"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+
+                    {/* Mobile: kebab menu */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
                         render={
                           <Button
                             variant="ghost"
-                            size="icon-xs"
-                            className="opacity-0 group-hover:opacity-100 text-destructive"
+                            size="icon"
+                            className="shrink-0 text-muted-foreground md:hidden"
+                            aria-label={`Actions for ${sub.name}`}
                           />
                         }
                       >
-                        <Trash2 className="h-3 w-3" />
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete &ldquo;{sub.name}&rdquo;?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This sub-category will be permanently deleted.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deleteCategory({ categoryId: sub._id })}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                        <MoreVertical className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditDialog(sub._id, sub.name)}>
+                          <Pencil className="h-4 w-4" />
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() =>
+                            setDeleteTarget({ id: sub._id, name: sub.name, childCount: 0 })
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 ))}
               </div>
@@ -287,6 +344,35 @@ function CategoryManager({ userId }: { userId: Id<"users"> }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete &ldquo;{deleteTarget?.name}&rdquo;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && deleteTarget.childCount > 0
+                ? `This will also delete ${deleteTarget.childCount} sub-categor${deleteTarget.childCount === 1 ? "y" : "ies"}.`
+                : "This category will be permanently deleted."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTarget) deleteCategory({ categoryId: deleteTarget.id });
+                setDeleteTarget(null);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
