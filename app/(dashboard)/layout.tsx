@@ -9,7 +9,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen">
       <DesktopSidebar />
-      <main className="md:pl-64 pb-20 md:pb-0">
+      <main className="md:pl-64 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
         <div className="mx-auto max-w-7xl">{children}</div>
       </main>
       <MobileNav />
