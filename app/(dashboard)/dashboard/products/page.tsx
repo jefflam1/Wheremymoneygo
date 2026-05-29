@@ -108,6 +108,7 @@ export default function ProductsPage() {
                 <Link
                   key={product._id}
                   href={`/dashboard/products/${product._id}`}
+                  className="block min-w-0"
                 >
                   <Card className="h-full hover:border-primary/50 transition-colors">
                     <CardContent className="p-4">
@@ -186,12 +187,13 @@ export default function ProductsPage() {
                 <Link
                   key={comparison.productId}
                   href={`/dashboard/products/${comparison.productId}`}
+                  className="block"
                 >
                   <Card className="hover:border-primary/50 transition-colors">
                     <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-4 mb-3">
-                        <div>
-                          <h3 className="font-semibold">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate">
                             {comparison.productName}
                           </h3>
                           {comparison.category && (
@@ -200,15 +202,15 @@ export default function ProductsPage() {
                             </Badge>
                           )}
                         </div>
-                        <div className="text-right">
+                        <div className="text-right shrink-0">
                           <Badge
                             variant="default"
-                            className="bg-green-600 hover:bg-green-600"
+                            className="bg-green-600 hover:bg-green-600 whitespace-nowrap"
                           >
                             <DollarSign className="h-3 w-3 mr-1" />
                             Save {comparison.savingsPercent.toFixed(0)}%
                           </Badge>
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-xs text-muted-foreground mt-1 whitespace-nowrap">
                             up to {formatMoney(comparison.potentialSavings, currency)}
                           </p>
                         </div>
@@ -217,33 +219,33 @@ export default function ProductsPage() {
                         {comparison.stores.slice(0, 3).map((store, index) => (
                           <div
                             key={store.store}
-                            className="flex items-center justify-between text-sm"
+                            className="flex items-center justify-between gap-3 text-sm"
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
                               {index === 0 && (
                                 <Badge
                                   variant="outline"
-                                  className="text-xs text-green-600 border-green-600"
+                                  className="text-xs text-green-600 border-green-600 shrink-0"
                                 >
                                   Best
                                 </Badge>
                               )}
                               <span
-                                className={
+                                className={`truncate ${
                                   index === 0
                                     ? "font-medium"
                                     : "text-muted-foreground"
-                                }
+                                }`}
                               >
                                 {store.store}
                               </span>
                             </div>
                             <span
-                              className={
+                              className={`shrink-0 whitespace-nowrap ${
                                 index === 0
                                   ? "font-semibold text-green-600"
                                   : ""
-                              }
+                              }`}
                             >
                               {formatMoney(store.avgPrice, currency)}
                             </span>

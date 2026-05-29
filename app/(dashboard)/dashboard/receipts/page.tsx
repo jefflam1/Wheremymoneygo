@@ -51,14 +51,14 @@ export default function ReceiptsPage() {
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
           <h1 className="text-2xl md:text-3xl font-bold">Receipts</h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {receipts?.length ?? 0} receipts tracked
           </p>
         </div>
-        <Button render={<Link href="/dashboard/receipts/new" />}>
+        <Button render={<Link href="/dashboard/receipts/new" />} className="hidden sm:inline-flex">
           <PlusCircle className="h-4 w-4 mr-2" />
           Add Receipt
         </Button>
@@ -117,14 +117,14 @@ export default function ReceiptsPage() {
             >
               <Card className="hover:border-primary/50 transition-colors">
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
                       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                         <Store className="h-5 w-5 text-primary" />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold truncate">
+                          <h3 className="font-semibold truncate min-w-0">
                             {receipt.storeName}
                           </h3>
                           <Badge variant="secondary" className="text-xs">
