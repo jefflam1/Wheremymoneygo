@@ -2,10 +2,25 @@
 
 import { useUser } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
-import { useConvex } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
-export function useCurrentUser() {
+const authDisabled = process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
+
+export const useCurrentUser = authDisabled
+  ? useCurrentUserDevBypass
+  : useCurrentUserWithClerk;
+
+function useCurrentUserDevBypass() {
+  const anyUser = useQuery(api.users.getAnyUser, {});
+  return {
+    user: anyUser ?? null,
+    clerkUser: null,
+    isLoading: anyUser === undefined,
+    isSignedIn: !!anyUser,
+  };
+}
+
+function useCurrentUserWithClerk() {
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
 
   const convexUser = useQuery(
@@ -13,9 +28,6 @@ export function useCurrentUser() {
     clerkUser?.id ? { clerkId: clerkUser.id } : "skip"
   );
 
-  // convexUser is undefined both when loading and when not found.
-  // If Clerk is loaded but there's no clerkUser, we're not signed in — don't wait for Convex.
-  // If Clerk user exists, treat convexUser === undefined as still loading.
   const isLoading = !clerkLoaded || (!!clerkUser && convexUser === undefined);
 
   return {

@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "next-themes";
 import { useUser, UserButton } from "@clerk/nextjs";
 import { useCurrentUser } from "@/hooks/use-current-user";
+
+const authDisabled = process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -458,7 +460,10 @@ function AppearanceCard() {
 }
 
 export default function SettingsPage() {
-  const { user: clerkUser, isLoaded } = useUser();
+  const { user: clerkUser, isLoaded } = authDisabled
+    ? { user: null, isLoaded: true }
+    : // eslint-disable-next-line react-hooks/rules-of-hooks
+      useUser();
   const { user } = useCurrentUser();
 
   if (!isLoaded) {
@@ -491,26 +496,32 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: "h-16 w-16",
-                },
-              }}
-            />
+            {authDisabled ? (
+              <div className="h-16 w-16 rounded-full bg-muted" />
+            ) : (
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "h-16 w-16",
+                  },
+                }}
+              />
+            )}
             <div>
               <p className="font-semibold text-lg">
-                {clerkUser?.fullName || clerkUser?.username || "User"}
+                {clerkUser?.fullName || clerkUser?.username || user?.name || "User"}
               </p>
               <p className="text-muted-foreground">
-                {clerkUser?.primaryEmailAddress?.emailAddress}
+                {clerkUser?.primaryEmailAddress?.emailAddress ?? user?.email}
               </p>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground mt-4">
-            Click on your avatar to manage your account settings, change your
-            password, or sign out.
-          </p>
+          {!authDisabled && (
+            <p className="text-sm text-muted-foreground mt-4">
+              Click on your avatar to manage your account settings, change your
+              password, or sign out.
+            </p>
+          )}
         </CardContent>
       </Card>
 

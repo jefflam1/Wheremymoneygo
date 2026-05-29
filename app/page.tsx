@@ -4,9 +4,14 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Receipt, TrendingDown, Camera, Wallet } from "lucide-react";
 
-export default async function HomePage() {
-  const { userId } = await auth();
+const authDisabled = process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
 
+export default async function HomePage() {
+  if (authDisabled) {
+    redirect("/dashboard");
+  }
+
+  const { userId } = await auth();
   if (userId) {
     redirect("/dashboard");
   }

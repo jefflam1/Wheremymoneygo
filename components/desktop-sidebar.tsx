@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+
+const authDisabled = process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
 import {
   Home,
   Receipt,
@@ -71,13 +73,17 @@ export function DesktopSidebar() {
         {/* User Section */}
         <div className="p-4 border-t">
           <div className="flex items-center gap-3">
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: "h-9 w-9",
-                },
-              }}
-            />
+            {authDisabled ? (
+              <div className="h-9 w-9 rounded-full bg-muted" />
+            ) : (
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "h-9 w-9",
+                  },
+                }}
+              />
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">Account</p>
               <p className="text-xs text-muted-foreground">Manage settings</p>

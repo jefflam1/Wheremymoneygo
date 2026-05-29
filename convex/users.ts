@@ -57,6 +57,15 @@ export const getUserById = query({
   },
 });
 
+// Dev-only: returns any user in the DB. Used when NEXT_PUBLIC_DISABLE_AUTH=true
+// so the dashboard can render on mobile without going through Clerk.
+export const getAnyUser = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("users").first();
+  },
+});
+
 export const updateCurrency = mutation({
   args: {
     userId: v.id("users"),
