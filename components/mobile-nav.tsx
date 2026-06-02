@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Receipt, Package, Settings, PlusCircle } from "lucide-react";
+import { Home, Receipt, Package, Settings, PieChart } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Home", icon: Home },
   { href: "/dashboard/receipts", label: "Receipts", icon: Receipt },
-  { href: "/dashboard/receipts/new", label: "Add", icon: PlusCircle },
+  { href: "/dashboard/stats", label: "Stats", icon: PieChart },
   { href: "/dashboard/products", label: "Prices", icon: Package },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
@@ -27,7 +27,6 @@ export function MobileNav() {
             pathname === item.href ||
             (item.href !== "/dashboard" && pathname.startsWith(item.href));
           const Icon = item.icon;
-          const isAddButton = item.href === "/dashboard/receipts/new";
 
           return (
             <Link
@@ -35,17 +34,13 @@ export function MobileNav() {
               href={item.href}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors",
-                isAddButton
-                  ? "bg-primary text-primary-foreground -mt-4 rounded-full p-3 shadow-lg"
-                  : isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                isActive
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon className={cn("h-5 w-5", isAddButton && "h-6 w-6")} />
-              {!isAddButton && (
-                <span className="text-xs font-medium">{item.label}</span>
-              )}
+              <Icon className="h-5 w-5" />
+              <span className="text-xs font-medium">{item.label}</span>
             </Link>
           );
         })}

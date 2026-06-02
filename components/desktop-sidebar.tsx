@@ -12,6 +12,7 @@ import {
   Settings,
   PlusCircle,
   Wallet,
+  PieChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: Home },
   { href: "/dashboard/receipts", label: "Receipts", icon: Receipt },
+  { href: "/dashboard/stats", label: "Stats", icon: PieChart },
   { href: "/dashboard/products", label: "Price Library", icon: Package },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];

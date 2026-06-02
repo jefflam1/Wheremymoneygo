@@ -1,5 +1,6 @@
 import { MobileNav } from "@/components/mobile-nav";
 import { DesktopSidebar } from "@/components/desktop-sidebar";
+import { FloatingActionButton } from "@/components/floating-action-button";
 
 export default function DashboardLayout({
   children,
@@ -13,6 +14,7 @@ export default function DashboardLayout({
         <div className="mx-auto max-w-7xl">{children}</div>
       </main>
       <MobileNav />
+      <FloatingActionButton />
     </div>
   );
 }
