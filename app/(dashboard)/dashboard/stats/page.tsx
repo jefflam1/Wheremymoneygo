@@ -7,10 +7,26 @@ import { api } from "@/convex/_generated/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, PieChart as PieChartIcon } from "lucide-react";
 import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
+import { cn } from "@/lib/utils";
 import {
   CategoryPieChart,
   colorForIndex,
 } from "@/components/category-pie-chart";
+
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 function getMonthRange(year: number, month: number) {
   const start = new Date(year, month, 1).getTime();
@@ -31,6 +47,8 @@ export default function StatsPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerYear, setPickerYear] = useState(now.getFullYear());
 
   const { start: startDate, end: endDate } = useMemo(
     () => getMonthRange(year, month),
@@ -63,6 +81,17 @@ export default function StatsPage() {
   const isCurrentMonth =
     year === now.getFullYear() && month === now.getMonth();
 
+  const togglePicker = () => {
+    if (!showPicker) setPickerYear(year);
+    setShowPicker(!showPicker);
+  };
+
+  const selectMonth = (y: number, m: number) => {
+    setYear(y);
+    setMonth(m);
+    setShowPicker(false);
+  };
+
   if (userLoading) {
     return <StatsSkeleton />;
   }
@@ -90,9 +119,13 @@ export default function StatsPage() {
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <span className="text-sm font-semibold">
+        <button
+          onClick={togglePicker}
+          className="text-sm font-semibold hover:bg-muted px-2 py-1 transition-colors"
+          aria-expanded={showPicker}
+        >
           {formatMonth(year, month)}
-        </span>
+        </button>
         <button
           onClick={goToNextMonth}
           disabled={isCurrentMonth}
@@ -103,7 +136,17 @@ export default function StatsPage() {
         </button>
       </div>
 
-      {!breakdown ? (
+      {showPicker ? (
+        <MonthYearPicker
+          pickerYear={pickerYear}
+          selectedYear={year}
+          selectedMonth={month}
+          currentYear={now.getFullYear()}
+          currentMonth={now.getMonth()}
+          onPickerYearChange={setPickerYear}
+          onSelect={selectMonth}
+        />
+      ) : !breakdown ? (
         <StatsContentSkeleton />
       ) : !hasData ? (
         <div className="px-4 py-16 text-center">
@@ -186,5 +229,79 @@ function StatsContentSkeleton() {
         ))}
       </div>
     </>
+  );
+}
+
+interface MonthYearPickerProps {
+  pickerYear: number;
+  selectedYear: number;
+  selectedMonth: number;
+  currentYear: number;
+  currentMonth: number;
+  onPickerYearChange: (year: number) => void;
+  onSelect: (year: number, month: number) => void;
+}
+
+function MonthYearPicker({
+  pickerYear,
+  selectedYear,
+  selectedMonth,
+  currentYear,
+  currentMonth,
+  onPickerYearChange,
+  onSelect,
+}: MonthYearPickerProps) {
+  const canGoForward = pickerYear < currentYear;
+
+  return (
+    <div className="px-4 py-4">
+      {/* Year nav */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => onPickerYearChange(pickerYear - 1)}
+          className="p-1 hover:bg-muted transition-colors"
+          aria-label="Previous year"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <span className="text-lg font-semibold tabular-nums">
+          {pickerYear}
+        </span>
+        <button
+          onClick={() => onPickerYearChange(pickerYear + 1)}
+          disabled={!canGoForward}
+          className="p-1 hover:bg-muted transition-colors disabled:opacity-30"
+          aria-label="Next year"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Month grid */}
+      <div className="grid grid-cols-3 gap-2">
+        {MONTH_LABELS.map((label, m) => {
+          const isFuture =
+            pickerYear > currentYear ||
+            (pickerYear === currentYear && m > currentMonth);
+          const isSelected =
+            pickerYear === selectedYear && m === selectedMonth;
+          return (
+            <button
+              key={label}
+              disabled={isFuture}
+              onClick={() => onSelect(pickerYear, m)}
+              className={cn(
+                "px-3 py-3 text-sm font-medium transition-colors",
+                isFuture && "opacity-30 cursor-not-allowed",
+                !isFuture && !isSelected && "hover:bg-muted",
+                isSelected && "bg-primary text-primary-foreground"
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
