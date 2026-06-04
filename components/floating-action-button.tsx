@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 export function FloatingActionButton() {
   const pathname = usePathname();
 
-  // Don't show the "Add Receipt" FAB on the Add Receipt flow itself.
-  if (pathname.startsWith("/dashboard/receipts/new")) {
+  // Only show the "Add Receipt" FAB on the home page.
+  if (pathname !== "/dashboard") {
     return null;
   }
 

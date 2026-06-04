@@ -17,6 +17,8 @@ import {
   Store,
   ArrowRight,
   DollarSign,
+  Repeat,
+  CalendarClock,
 } from "lucide-react";
 import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
 
@@ -31,6 +33,11 @@ export default function ProductsPage() {
 
   const priceComparisons = useQuery(
     api.products.getPriceComparison,
+    user?._id ? { userId: user._id } : "skip"
+  );
+
+  const recurring = useQuery(
+    api.products.getRecurringPurchases,
     user?._id ? { userId: user._id } : "skip"
   );
 
@@ -66,6 +73,7 @@ export default function ProductsPage() {
         <TabsList>
           <TabsTrigger value="products">All Products</TabsTrigger>
           <TabsTrigger value="compare">Price Comparison</TabsTrigger>
+          <TabsTrigger value="recurring">Recurring</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="space-y-6">
@@ -262,6 +270,90 @@ export default function ProductsPage() {
                   </Card>
                 </Link>
               ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="recurring" className="space-y-6">
+          {!recurring ? (
+            <div className="space-y-3">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
+            </div>
+          ) : recurring.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Repeat className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  Products you buy regularly will appear here once you&apos;ve
+                  bought them a few times
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Items you buy on a regular schedule, with an estimate of when
+                you&apos;re next due
+              </p>
+              {recurring.map((item) => {
+                const dueInDays = Math.round(
+                  (item.predictedNext - new Date().getTime()) /
+                    (24 * 60 * 60 * 1000)
+                );
+                const dueLabel =
+                  dueInDays < 0
+                    ? `${Math.abs(dueInDays)}d overdue`
+                    : dueInDays === 0
+                      ? "Due today"
+                      : `in ${dueInDays}d`;
+                return (
+                  <Link
+                    key={item.productId}
+                    href={`/dashboard/products/${item.productId}`}
+                    className="block"
+                  >
+                    <Card className="hover:border-primary/50 transition-colors">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold truncate">
+                              {item.productName}
+                            </h3>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <Badge variant="secondary" className="text-xs">
+                                <Repeat className="h-3 w-3 mr-1" />
+                                {item.frequency}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {item.purchaseCount} purchases · avg{" "}
+                                {formatMoney(item.avgPrice, currency)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <Badge
+                              variant="outline"
+                              className={
+                                dueInDays <= 0
+                                  ? "text-amber-600 border-amber-500/50 whitespace-nowrap"
+                                  : "whitespace-nowrap"
+                              }
+                            >
+                              <CalendarClock className="h-3 w-3 mr-1" />
+                              {dueLabel}
+                            </Badge>
+                            <p className="text-xs text-muted-foreground mt-1 whitespace-nowrap">
+                              every ~{item.avgIntervalDays}d
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </TabsContent>

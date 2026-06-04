@@ -18,8 +18,10 @@ import {
   Calendar,
   Camera,
   Edit,
+  AlertTriangle,
 } from "lucide-react";
 import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
+import { isReconciled } from "@/lib/receipt-utils";
 
 export default function ReceiptsPage() {
   const { user, isLoading: userLoading } = useCurrentUser();
@@ -140,6 +142,16 @@ export default function ReceiptsPage() {
                               </>
                             )}
                           </Badge>
+                          {!isReconciled(receipt) && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs text-amber-600 border-amber-500/50"
+                              title="Subtotal, discount and tax don't add up to the total"
+                            >
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              Check totals
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                           <span className="flex items-center gap-1">

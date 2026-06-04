@@ -31,11 +31,13 @@ import {
   Camera,
   Edit,
   Pencil,
+  AlertTriangle,
   Image as ImageIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useMemo } from "react";
 import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
+import { reconciliationDelta } from "@/lib/receipt-utils";
 
 export default function ReceiptDetailPage({
   params,
@@ -290,6 +292,25 @@ export default function ReceiptDetailPage({
               <span>Total</span>
               <span>{formatMoney(receipt.total, currency)}</span>
             </div>
+            {(() => {
+              const delta = reconciliationDelta(receipt);
+              if (delta === null || Math.abs(delta) < 0.01) return null;
+              return (
+                <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/30 p-3 mt-2 text-sm">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-muted-foreground">
+                    <span className="font-medium text-amber-700 dark:text-amber-500">
+                      Totals don&apos;t add up.
+                    </span>{" "}
+                    Subtotal − discount + tax is{" "}
+                    {formatMoney(receipt.total - delta, currency)}, but the total
+                    is {formatMoney(receipt.total, currency)} (off by{" "}
+                    {formatMoney(Math.abs(delta), currency)}). Double-check the
+                    scanned figures.
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </CardContent>
       </Card>

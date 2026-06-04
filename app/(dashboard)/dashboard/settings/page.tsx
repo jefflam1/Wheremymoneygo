@@ -6,7 +6,7 @@ import { useUser, UserButton } from "@clerk/nextjs";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
 const authDisabled = process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvex } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -59,6 +59,9 @@ import {
   Moon,
   Monitor,
   MoreVertical,
+  Download,
+  Loader2,
+  Wallet,
 } from "lucide-react";
 import { CURRENCIES, DEFAULT_CURRENCY, getCurrency } from "@/lib/currencies";
 
@@ -459,6 +462,230 @@ function AppearanceCard() {
   );
 }
 
+function BudgetRow({
+  label,
+  currentAmount,
+  currencySymbol,
+  onCommit,
+}: {
+  label: string;
+  currentAmount: number | undefined;
+  currencySymbol: string;
+  onCommit: (amount: number) => void;
+}) {
+  // The parent passes a `key` derived from currentAmount, so this component
+  // remounts (re-initialising) whenever the stored budget changes.
+  const [value, setValue] = useState(
+    currentAmount !== undefined ? String(currentAmount) : ""
+  );
+
+  const commit = () => {
+    const amount = parseFloat(value);
+    const next = isNaN(amount) ? 0 : amount;
+    if (next !== (currentAmount ?? 0)) onCommit(next);
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-sm truncate flex-1">{label}</span>
+      <div className="relative w-32 shrink-0">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+          {currencySymbol}
+        </span>
+        <Input
+          type="number"
+          min="0"
+          step="0.01"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+          placeholder="0"
+          className="pl-7 text-right"
+        />
+      </div>
+    </div>
+  );
+}
+
+function BudgetManager({
+  userId,
+  currencyCode,
+}: {
+  userId: Id<"users">;
+  currencyCode: string;
+}) {
+  const budgets = useQuery(api.budgets.getBudgets, { userId });
+  const categories = useQuery(api.categories.getCategories, { userId });
+  const setBudget = useMutation(api.budgets.setBudget);
+
+  const symbol = getCurrency(currencyCode).symbol;
+
+  if (budgets === undefined || categories === undefined) {
+    return (
+      <div className="space-y-3">
+        {[...Array(4)].map((_, i) => (
+          <Skeleton key={i} className="h-9 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  const amountFor = (slug?: string) =>
+    budgets.find((b) => b.categorySlug === slug)?.amount;
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <BudgetRow
+          key={`overall-${amountFor(undefined)}`}
+          label="Overall monthly budget"
+          currentAmount={amountFor(undefined)}
+          currencySymbol={symbol}
+          onCommit={(amount) => setBudget({ userId, amount })}
+        />
+      </div>
+
+      {categories.length > 0 && (
+        <div className="space-y-3 border-t pt-4">
+          <p className="text-xs uppercase text-muted-foreground">
+            Per-category (monthly)
+          </p>
+          {categories.map((cat) => (
+            <BudgetRow
+              key={`${cat._id}-${amountFor(cat.slug)}`}
+              label={cat.name}
+              currentAmount={amountFor(cat.slug)}
+              currencySymbol={symbol}
+              onCommit={(amount) =>
+                setBudget({ userId, categorySlug: cat.slug, amount })
+              }
+            />
+          ))}
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        Leave a field at 0 to remove its budget. Progress against budgets is
+        shown on the Stats page.
+      </p>
+    </div>
+  );
+}
+
+function csvCell(value: string | number | undefined | null): string {
+  const s = value === undefined || value === null ? "" : String(value);
+  // Quote any cell that contains a comma, quote or newline (and escape quotes).
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function ExportDataCard({ userId }: { userId: Id<"users"> }) {
+  const convex = useConvex();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const receipts = await convex.query(api.receipts.getReceiptsWithItems, {
+        userId,
+        limit: 10000,
+      });
+
+      const header = [
+        "Date",
+        "Store",
+        "Product",
+        "Category",
+        "Quantity",
+        "Unit Price",
+        "Line Total",
+        "Receipt Subtotal",
+        "Receipt Discount",
+        "Receipt Tax",
+        "Receipt Total",
+        "Payment Method",
+        "Currency",
+        "Entry",
+      ];
+
+      const rows: string[] = [header.map(csvCell).join(",")];
+
+      for (const receipt of receipts) {
+        const date = new Date(receipt.date).toISOString().split("T")[0];
+        const base = [
+          receipt.storeName,
+          receipt.subtotal ?? "",
+          receipt.discount ?? "",
+          receipt.tax ?? "",
+          receipt.total,
+          receipt.paymentMethod ?? "",
+          receipt.currency ?? "",
+          receipt.isManualEntry ? "Manual" : "Scanned",
+        ];
+        const items = receipt.items.length > 0 ? receipt.items : [null];
+        for (const item of items) {
+          rows.push(
+            [
+              date,
+              base[0],
+              item?.productName ?? "",
+              item?.category ?? "",
+              item?.quantity ?? "",
+              item?.price ?? "",
+              item ? item.price * item.quantity : "",
+              base[1],
+              base[2],
+              base[3],
+              base[4],
+              base[5],
+              base[6],
+              base[7],
+            ]
+              .map(csvCell)
+              .join(",")
+          );
+        }
+      }
+
+      const csv = rows.join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const stamp = new Date().toISOString().split("T")[0];
+      link.download = `wheremymoneygo-export-${stamp}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Download className="h-5 w-5" />
+          Export Data
+        </CardTitle>
+        <CardDescription>
+          Download all your receipts and line items as a CSV file
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button variant="outline" onClick={handleExport} disabled={isExporting}>
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4 mr-2" />
+          )}
+          {isExporting ? "Exporting..." : "Export to CSV"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const { user: clerkUser, isLoaded } = authDisabled
     ? { user: null, isLoaded: true }
@@ -543,6 +770,29 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Budgets */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Wallet className="h-5 w-5" />
+            Budgets
+          </CardTitle>
+          <CardDescription>
+            Set monthly spending limits overall and per category
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {user ? (
+            <BudgetManager
+              userId={user._id}
+              currencyCode={user.currency ?? DEFAULT_CURRENCY}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Categories */}
       <Card>
         <CardHeader>
@@ -562,6 +812,9 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Export Data */}
+      {user && <ExportDataCard userId={user._id} />}
 
       {/* Privacy */}
       <Card>

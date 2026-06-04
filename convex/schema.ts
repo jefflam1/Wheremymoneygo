@@ -71,6 +71,14 @@ export default defineSchema({
     .index("by_user_parent", ["userId", "parentId"])
     .index("by_user_slug", ["userId", "slug"]),
 
+  budgets: defineTable({
+    userId: v.id("users"),
+    // Undefined categorySlug = the overall monthly budget.
+    categorySlug: v.optional(v.string()),
+    amount: v.number(),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   priceHistory: defineTable({
     productId: v.id("products"),
     receiptId: v.id("receipts"),

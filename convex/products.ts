@@ -190,3 +190,68 @@ export const getPriceComparison = query({
       .sort((a, b) => b.savingsPercent - a.savingsPercent);
   },
 });
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function frequencyLabel(avgIntervalDays: number): string {
+  if (avgIntervalDays <= 10) return "Weekly";
+  if (avgIntervalDays <= 18) return "Every 2 weeks";
+  if (avgIntervalDays <= 45) return "Monthly";
+  return "Occasionally";
+}
+
+// Detect products bought repeatedly at a fairly regular cadence, estimate how
+// often they're purchased, and predict when the next purchase is due.
+export const getRecurringPurchases = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const products = await ctx.db
+      .query("products")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const recurring = await Promise.all(
+      products.map(async (product) => {
+        const priceHistory = await ctx.db
+          .query("priceHistory")
+          .withIndex("by_product", (q) => q.eq("productId", product._id))
+          .collect();
+
+        // Distinct purchase days, oldest first.
+        const days = [...new Set(priceHistory.map((ph) => ph.date))].sort(
+          (a, b) => a - b
+        );
+        if (days.length < 3) return null;
+
+        const intervals: number[] = [];
+        for (let i = 1; i < days.length; i++) {
+          intervals.push((days[i] - days[i - 1]) / DAY_MS);
+        }
+        const avgIntervalDays =
+          intervals.reduce((a, b) => a + b, 0) / intervals.length;
+
+        // Only treat it as recurring if it repeats within ~6 weeks on average.
+        if (avgIntervalDays < 2 || avgIntervalDays > 45) return null;
+
+        const prices = priceHistory.map((ph) => ph.price);
+        const lastPurchase = days[days.length - 1];
+
+        return {
+          productId: product._id,
+          productName: product.name,
+          category: product.category,
+          purchaseCount: days.length,
+          avgIntervalDays: Math.round(avgIntervalDays),
+          frequency: frequencyLabel(avgIntervalDays),
+          avgPrice: prices.reduce((a, b) => a + b, 0) / prices.length,
+          lastPurchase,
+          predictedNext: lastPurchase + avgIntervalDays * DAY_MS,
+        };
+      })
+    );
+
+    return recurring
+      .filter((r) => r !== null)
+      .sort((a, b) => a.predictedNext - b.predictedNext);
+  },
+});
