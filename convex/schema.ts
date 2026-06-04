@@ -17,6 +17,7 @@ export default defineSchema({
     storeAddress: v.optional(v.string()),
     date: v.number(),
     subtotal: v.optional(v.number()),
+    discount: v.optional(v.number()),
     tax: v.optional(v.number()),
     total: v.number(),
     imageId: v.optional(v.id("_storage")),

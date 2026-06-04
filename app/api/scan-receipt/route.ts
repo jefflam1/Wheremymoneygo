@@ -26,9 +26,10 @@ function buildPrompt(categorySlugs?: string[]): string {
       "category": "string - one of: ${categoryList}"
     }
   ],
-  "subtotal": "number or null",
+  "subtotal": "number or null - sum of item prices before discount and tax",
+  "discount": "number or null - total discounts/coupons/savings as a POSITIVE number; null if none",
   "tax": "number or null",
-  "total": "number - the total amount paid",
+  "total": "number - the final amount actually paid",
   "paymentMethod": "string or null - one of: cash, credit, debit, gift_card, other"
 }
 
@@ -37,6 +38,9 @@ Important:
 - Assign appropriate categories based on the product type
 - If the receipt is unclear or unreadable in parts, use your best judgment
 - Ensure all prices are positive numbers
+- Discounts, coupons, loyalty savings, and "you saved" lines are discounts. Report their total as a single POSITIVE number in "discount".
+- Record each item's "price" as its ORIGINAL price before any discount. Put the savings in "discount" — do NOT lower item prices to account for a discount.
+- The numbers should satisfy: subtotal − discount + tax = total. If they don't reconcile, re-read the receipt rather than altering item prices.
 - If you cannot determine a required field, use null`;
 }
 

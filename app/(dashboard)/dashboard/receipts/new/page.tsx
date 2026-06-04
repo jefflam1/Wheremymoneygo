@@ -23,6 +23,7 @@ interface ScannedData {
     category: string;
   }>;
   subtotal?: number;
+  discount?: number;
   tax?: number;
   total: number;
   paymentMethod?: string;

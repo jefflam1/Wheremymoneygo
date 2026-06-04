@@ -272,6 +272,14 @@ export default function ReceiptDetailPage({
                 <span>{formatMoney(receipt.subtotal, currency)}</span>
               </div>
             )}
+            {receipt.discount !== undefined && receipt.discount > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Discount</span>
+                <span className="text-green-600">
+                  −{formatMoney(receipt.discount, currency)}
+                </span>
+              </div>
+            )}
             {receipt.tax !== undefined && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Tax</span>

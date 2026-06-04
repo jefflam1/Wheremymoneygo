@@ -34,6 +34,7 @@ interface ReceiptFormData {
   date: string;
   items: ReceiptItem[];
   subtotal?: number;
+  discount?: number;
   tax?: number;
   total: number;
   paymentMethod?: string;
@@ -89,10 +90,18 @@ export function ReceiptForm({
       { productName: "", price: 0, quantity: 1, category: "" },
     ],
     subtotal: initialData?.subtotal ?? undefined,
+    discount: initialData?.discount ?? undefined,
     tax: initialData?.tax ?? undefined,
     total: initialData?.total ?? 0,
     paymentMethod: initialData?.paymentMethod ?? undefined,
   });
+
+  // When a receipt is scanned or edited it comes with an authoritative total
+  // (which may already account for discounts the line items don't reflect), so
+  // treat that as a manual value and don't overwrite it from the line items.
+  const [totalManuallyEdited, setTotalManuallyEdited] = useState(
+    (initialData?.total ?? 0) > 0
+  );
 
   const updateField = <K extends keyof ReceiptFormData>(
     field: K,
@@ -128,14 +137,27 @@ export function ReceiptForm({
     }));
   };
 
+  // Total suggested by the line items: items − discount + tax.
   const calculateTotal = () => {
     const itemsTotal = formData.items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
+    const discount = formData.discount ?? 0;
     const tax = formData.tax ?? 0;
-    return itemsTotal + tax;
+    return Math.max(0, itemsTotal - discount + tax);
   };
+
+  // Keep the total in sync with the line items unless the user has typed their
+  // own total (e.g. a scanned receipt total that doesn't reconcile exactly).
+  const computedTotal = calculateTotal();
+  useEffect(() => {
+    if (!totalManuallyEdited) {
+      setFormData((prev) =>
+        prev.total === computedTotal ? prev : { ...prev, total: computedTotal }
+      );
+    }
+  }, [computedTotal, totalManuallyEdited]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,8 +171,9 @@ export function ReceiptForm({
         storeAddress: formData.storeAddress || undefined,
         date: dateTimestamp,
         subtotal: formData.subtotal ?? undefined,
+        discount: formData.discount ?? undefined,
         tax: formData.tax ?? undefined,
-        total: calculateTotal(),
+        total: formData.total,
         paymentMethod: formData.paymentMethod || undefined,
         currency,
         items: formData.items
@@ -361,7 +384,7 @@ export function ReceiptForm({
           <CardTitle className="text-lg">Totals</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="subtotal">Subtotal</Label>
               <Input
@@ -373,6 +396,23 @@ export function ReceiptForm({
                 onChange={(e) =>
                   updateField(
                     "subtotal",
+                    e.target.value ? parseFloat(e.target.value) : undefined
+                  )
+                }
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="discount">Discount</Label>
+              <Input
+                id="discount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.discount ?? ""}
+                onChange={(e) =>
+                  updateField(
+                    "discount",
                     e.target.value ? parseFloat(e.target.value) : undefined
                   )
                 }
@@ -403,13 +443,16 @@ export function ReceiptForm({
                 type="number"
                 step="0.01"
                 min="0"
-                value={calculateTotal() || ""}
-                readOnly
+                value={formData.total || ""}
+                onChange={(e) => {
+                  setTotalManuallyEdited(true);
+                  updateField("total", parseFloat(e.target.value) || 0);
+                }}
                 placeholder="0.00"
                 required
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-2 sm:col-span-1">
               <Label htmlFor="paymentMethod">Payment</Label>
               <Select
                 value={formData.paymentMethod ?? ""}
@@ -429,9 +472,26 @@ export function ReceiptForm({
             </div>
           </div>
           <div className="flex justify-between items-center pt-4 border-t">
-            <span className="text-muted-foreground">Calculated Total:</span>
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">
+                {totalManuallyEdited ? "Total (manual):" : "Calculated Total:"}
+              </span>
+              {totalManuallyEdited &&
+                Math.abs(formData.total - computedTotal) > 0.005 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTotalManuallyEdited(false);
+                      updateField("total", computedTotal);
+                    }}
+                    className="text-xs text-primary hover:underline text-left"
+                  >
+                    Items suggest {formatMoney(computedTotal, currency)} — use this
+                  </button>
+                )}
+            </div>
             <span className="text-xl font-bold">
-              {formatMoney(calculateTotal(), currency)}
+              {formatMoney(formData.total, currency)}
             </span>
           </div>
         </CardContent>

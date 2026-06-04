@@ -80,6 +80,7 @@ export default function EditReceiptPage({
             category: item.category ?? "",
           })),
           subtotal: receipt.subtotal ?? undefined,
+          discount: receipt.discount ?? undefined,
           tax: receipt.tax ?? undefined,
           total: receipt.total,
           paymentMethod: receipt.paymentMethod ?? undefined,
