@@ -422,6 +422,7 @@ export function ReceiptForm({
                   <SelectItem value="cash">Cash</SelectItem>
                   <SelectItem value="credit">Credit Card</SelectItem>
                   <SelectItem value="debit">Debit Card</SelectItem>
+                  <SelectItem value="gift_card">Gift Card</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>

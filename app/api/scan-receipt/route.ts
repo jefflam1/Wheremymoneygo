@@ -29,7 +29,7 @@ function buildPrompt(categorySlugs?: string[]): string {
   "subtotal": "number or null",
   "tax": "number or null",
   "total": "number - the total amount paid",
-  "paymentMethod": "string or null - cash, credit, debit, etc."
+  "paymentMethod": "string or null - one of: cash, credit, debit, gift_card, other"
 }
 
 Important:
