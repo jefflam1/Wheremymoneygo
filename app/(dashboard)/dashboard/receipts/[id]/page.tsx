@@ -38,6 +38,7 @@ import Link from "next/link";
 import { useState, useMemo } from "react";
 import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
 import { reconciliationDelta } from "@/lib/receipt-utils";
+import { ImageLightbox } from "@/components/image-lightbox";
 
 export default function ReceiptDetailPage({
   params,
@@ -220,10 +221,10 @@ export default function ReceiptDetailPage({
                 </p>
               </object>
             ) : (
-              <img
+              <ImageLightbox
                 src={receipt.imageUrl}
                 alt="Receipt"
-                className="w-full max-h-96 object-contain rounded-lg bg-muted"
+                className="w-full max-h-96 object-contain rounded-lg bg-muted cursor-zoom-in"
               />
             )}
           </CardContent>
