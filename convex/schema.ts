@@ -19,6 +19,8 @@ export default defineSchema({
     subtotal: v.optional(v.number()),
     discount: v.optional(v.number()),
     tax: v.optional(v.number()),
+    // Amount covered by friends/others, which reduces what the user paid.
+    paidByFriends: v.optional(v.number()),
     total: v.number(),
     imageId: v.optional(v.id("_storage")),
     fileMimeType: v.optional(v.string()),

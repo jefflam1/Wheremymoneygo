@@ -36,6 +36,7 @@ interface ReceiptFormData {
   subtotal?: number;
   discount?: number;
   tax?: number;
+  paidByFriends?: number;
   total: number;
   paymentMethod?: string;
 }
@@ -92,6 +93,7 @@ export function ReceiptForm({
     subtotal: initialData?.subtotal ?? undefined,
     discount: initialData?.discount ?? undefined,
     tax: initialData?.tax ?? undefined,
+    paidByFriends: initialData?.paidByFriends ?? undefined,
     total: initialData?.total ?? 0,
     paymentMethod: initialData?.paymentMethod ?? undefined,
   });
@@ -137,7 +139,7 @@ export function ReceiptForm({
     }));
   };
 
-  // Total suggested by the line items: items − discount + tax.
+  // Total suggested by the line items: items − discount + tax − paid by friends.
   const calculateTotal = () => {
     const itemsTotal = formData.items.reduce(
       (sum, item) => sum + item.price * item.quantity,
@@ -145,7 +147,8 @@ export function ReceiptForm({
     );
     const discount = formData.discount ?? 0;
     const tax = formData.tax ?? 0;
-    return Math.max(0, itemsTotal - discount + tax);
+    const paidByFriends = formData.paidByFriends ?? 0;
+    return Math.max(0, itemsTotal - discount + tax - paidByFriends);
   };
 
   // Keep the total in sync with the line items unless the user has typed their
@@ -173,6 +176,7 @@ export function ReceiptForm({
         subtotal: formData.subtotal ?? undefined,
         discount: formData.discount ?? undefined,
         tax: formData.tax ?? undefined,
+        paidByFriends: formData.paidByFriends ?? undefined,
         total: formData.total,
         paymentMethod: formData.paymentMethod || undefined,
         currency,
@@ -430,6 +434,23 @@ export function ReceiptForm({
                 onChange={(e) =>
                   updateField(
                     "tax",
+                    e.target.value ? parseFloat(e.target.value) : undefined
+                  )
+                }
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="paidByFriends">Paid by friends</Label>
+              <Input
+                id="paidByFriends"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.paidByFriends ?? ""}
+                onChange={(e) =>
+                  updateField(
+                    "paidByFriends",
                     e.target.value ? parseFloat(e.target.value) : undefined
                   )
                 }

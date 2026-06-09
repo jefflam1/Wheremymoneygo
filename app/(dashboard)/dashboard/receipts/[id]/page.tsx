@@ -33,6 +33,7 @@ import {
   Pencil,
   AlertTriangle,
   Image as ImageIcon,
+  ListChecks,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useMemo } from "react";
@@ -51,6 +52,31 @@ export default function ReceiptDetailPage({
   const [isDeleting, setIsDeleting] = useState(false);
   const currency = user?.currency ?? DEFAULT_CURRENCY;
 
+  // Tick line items to see their combined cost (e.g. what a friend owes).
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+
+  const toggleSelected = (itemId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
+  const exitSelection = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    setShowSelectedOnly(false);
+  };
+
+  const handleSetPaidByFriends = async (amount: number) => {
+    await setPaidByFriends({ receiptId: id as Id<"receipts">, amount });
+    exitSelection();
+  };
+
   const receipt = useQuery(api.receipts.getReceiptById, {
     receiptId: id as Id<"receipts">,
   });
@@ -59,6 +85,7 @@ export default function ReceiptDetailPage({
     receipt?.userId ? { userId: receipt.userId } : "skip"
   );
   const deleteReceipt = useMutation(api.receipts.deleteReceipt);
+  const setPaidByFriends = useMutation(api.receipts.setPaidByFriends);
 
   // Build slug -> display label map (e.g. "breakfast" -> "Food > Breakfast")
   const categoryLabels = useMemo(() => {
@@ -233,35 +260,98 @@ export default function ReceiptDetailPage({
 
       {/* Items */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">
             Items ({receipt.items.length})
           </CardTitle>
+          <Button
+            variant={selectionMode ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => (selectionMode ? exitSelection() : setSelectionMode(true))}
+          >
+            <ListChecks className="h-4 w-4 mr-1" />
+            {selectionMode ? "Done" : "Select"}
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="divide-y">
-            {receipt.items.map((item) => (
-              <div
-                key={item._id}
-                className="py-3 flex items-center justify-between gap-4"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{item.productName}</p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    {item.category && (
-                      <Badge variant="outline" className="text-xs">
-                        {categoryLabels.get(item.category) || item.category}
-                      </Badge>
+            {receipt.items.map((item) =>
+              showSelectedOnly && !selectedIds.has(item._id) ? null : (
+                <div
+                  key={item._id}
+                  className={`py-3 flex items-center justify-between gap-4 ${
+                    selectionMode ? "cursor-pointer" : ""
+                  }`}
+                  onClick={
+                    selectionMode ? () => toggleSelected(item._id) : undefined
+                  }
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {selectionMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(item._id)}
+                        onChange={() => toggleSelected(item._id)}
+                        aria-label={`Select ${item.productName}`}
+                        className="h-4 w-4 shrink-0 accent-primary cursor-pointer"
+                      />
                     )}
-                    {item.quantity > 1 && <span>Qty: {item.quantity}</span>}
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{item.productName}</p>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {item.category && (
+                          <Badge variant="outline" className="text-xs">
+                            {categoryLabels.get(item.category) || item.category}
+                          </Badge>
+                        )}
+                        {item.quantity > 1 && <span>Qty: {item.quantity}</span>}
+                      </div>
+                    </div>
                   </div>
+                  <p className="font-semibold shrink-0">
+                    {formatMoney(item.price * item.quantity, currency)}
+                  </p>
                 </div>
-                <p className="font-semibold shrink-0">
-                  {formatMoney(item.price * item.quantity, currency)}
-                </p>
-              </div>
-            ))}
+              )
+            )}
           </div>
+
+          {selectionMode && (() => {
+            const selectedTotal = receipt.items.reduce(
+              (sum, item) =>
+                selectedIds.has(item._id)
+                  ? sum + item.price * item.quantity
+                  : sum,
+              0
+            );
+            return (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/50 p-3 mt-4">
+                <span className="text-sm text-muted-foreground">
+                  {selectedIds.size} selected ·{" "}
+                  <span className="font-semibold text-foreground">
+                    {formatMoney(selectedTotal, currency)}
+                  </span>
+                </span>
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={showSelectedOnly ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => setShowSelectedOnly((on) => !on)}
+                    >
+                      {showSelectedOnly ? "Show all" : "Show selected only"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleSetPaidByFriends(selectedTotal)}
+                    >
+                      Set as Paid by friends
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
@@ -289,6 +379,14 @@ export default function ReceiptDetailPage({
                 <span>{formatMoney(receipt.tax, currency)}</span>
               </div>
             )}
+            {receipt.paidByFriends !== undefined && receipt.paidByFriends > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Paid by friends</span>
+                <span className="text-green-600">
+                  −{formatMoney(receipt.paidByFriends, currency)}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between text-lg font-bold pt-2 border-t">
               <span>Total</span>
               <span>{formatMoney(receipt.total, currency)}</span>
@@ -303,8 +401,12 @@ export default function ReceiptDetailPage({
                     <span className="font-medium text-amber-700 dark:text-amber-500">
                       Totals don&apos;t add up.
                     </span>{" "}
-                    Subtotal − discount + tax is{" "}
-                    {formatMoney(receipt.total - delta, currency)}, but the total
+                    Subtotal − discount + tax
+                    {receipt.paidByFriends !== undefined &&
+                    receipt.paidByFriends > 0
+                      ? " − paid by friends"
+                      : ""}{" "}
+                    is {formatMoney(receipt.total - delta, currency)}, but the total
                     is {formatMoney(receipt.total, currency)} (off by{" "}
                     {formatMoney(Math.abs(delta), currency)}). Double-check the
                     scanned figures.

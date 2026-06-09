@@ -10,6 +10,7 @@ export const createReceipt = mutation({
     subtotal: v.optional(v.number()),
     discount: v.optional(v.number()),
     tax: v.optional(v.number()),
+    paidByFriends: v.optional(v.number()),
     total: v.number(),
     imageId: v.optional(v.id("_storage")),
     fileMimeType: v.optional(v.string()),
@@ -188,6 +189,7 @@ export const updateReceipt = mutation({
     subtotal: v.optional(v.number()),
     discount: v.optional(v.number()),
     tax: v.optional(v.number()),
+    paidByFriends: v.optional(v.number()),
     total: v.number(),
     paymentMethod: v.optional(v.string()),
     currency: v.optional(v.string()),
@@ -274,6 +276,32 @@ export const updateReceipt = mutation({
     }
 
     return receiptId;
+  },
+});
+
+// Sets how much of a receipt friends covered and reduces the stored total to
+// match. The total is recomputed from the receipt's base figures (subtotal −
+// discount + tax, or the pre-friends total) so calling this repeatedly is
+// idempotent and keeps the numbers reconciled.
+export const setPaidByFriends = mutation({
+  args: {
+    receiptId: v.id("receipts"),
+    amount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const receipt = await ctx.db.get(args.receiptId);
+    if (!receipt) throw new Error("Receipt not found");
+
+    const base =
+      receipt.subtotal != null
+        ? receipt.subtotal - (receipt.discount ?? 0) + (receipt.tax ?? 0)
+        : receipt.total + (receipt.paidByFriends ?? 0);
+
+    const amount = Math.max(0, args.amount);
+    await ctx.db.patch(args.receiptId, {
+      paidByFriends: amount > 0 ? amount : undefined,
+      total: Math.max(0, base - amount),
+    });
   },
 });
 

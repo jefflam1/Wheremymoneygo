@@ -82,6 +82,7 @@ export default function EditReceiptPage({
           subtotal: receipt.subtotal ?? undefined,
           discount: receipt.discount ?? undefined,
           tax: receipt.tax ?? undefined,
+          paidByFriends: receipt.paidByFriends ?? undefined,
           total: receipt.total,
           paymentMethod: receipt.paymentMethod ?? undefined,
         }}

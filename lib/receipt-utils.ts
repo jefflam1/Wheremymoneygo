@@ -2,17 +2,21 @@ export interface ReconcilableReceipt {
   subtotal?: number | null;
   discount?: number | null;
   tax?: number | null;
+  paidByFriends?: number | null;
   total: number;
 }
 
 // The amount by which the stated total differs from what the receipt's own
-// numbers imply (subtotal − discount + tax). Positive means the total is higher
-// than expected, negative means lower. Returns null when there's no subtotal to
-// reconcile against, in which case there's nothing to flag.
+// numbers imply (subtotal − discount + tax − paid by friends). Positive means
+// the total is higher than expected, negative means lower. Returns null when
+// there's no subtotal to reconcile against, in which case there's nothing to flag.
 export function reconciliationDelta(receipt: ReconcilableReceipt): number | null {
   if (receipt.subtotal == null) return null;
   const expected =
-    receipt.subtotal - (receipt.discount ?? 0) + (receipt.tax ?? 0);
+    receipt.subtotal -
+    (receipt.discount ?? 0) +
+    (receipt.tax ?? 0) -
+    (receipt.paidByFriends ?? 0);
   return Math.round((receipt.total - expected) * 100) / 100;
 }
 
