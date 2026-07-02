@@ -398,11 +398,13 @@ export function ReceiptForm({
                     value={item.category}
                     onValueChange={(value) => value && updateItem(index, "category", value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue>
-                        {(value: string | null) =>
-                          value ? formatCategoryLabel(value) : "Select"
-                        }
+                        {(value: string | null) => (
+                          <span className="truncate">
+                            {value ? formatCategoryLabel(value) : "Select"}
+                          </span>
+                        )}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -528,11 +530,13 @@ export function ReceiptForm({
                 value={formData.paymentMethod ?? ""}
                 onValueChange={(value) => updateField("paymentMethod", value ?? undefined)}
               >
-                <SelectTrigger id="paymentMethod">
+                <SelectTrigger id="paymentMethod" className="w-full">
                   <SelectValue>
-                    {(value: string | null) =>
-                      value ? formatPaymentLabel(value) : "Select"
-                    }
+                    {(value: string | null) => (
+                      <span className="truncate">
+                        {value ? formatPaymentLabel(value) : "Select"}
+                      </span>
+                    )}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
