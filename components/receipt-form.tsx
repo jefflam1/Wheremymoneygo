@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Trash2, Plus, Loader2, Image as ImageIcon, FileText } from "lucide-react";
 import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
+import { ProductNameInput } from "@/components/product-name-input";
 
 interface ReceiptItem {
   productName: string;
@@ -67,6 +68,8 @@ export function ReceiptForm({
   const createReceipt = useMutation(api.receipts.createReceipt);
   const updateReceipt = useMutation(api.receipts.updateReceipt);
   const categories = useQuery(api.categories.getCategories, { userId });
+  const existingProducts = useQuery(api.products.getProductNames, { userId });
+  const existingNames = existingProducts?.map((p) => p.name) ?? [];
   const seedDefaults = useMutation(api.categories.seedDefaultCategories);
   const seededRef = useRef(false);
 
@@ -302,11 +305,12 @@ export function ReceiptForm({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 space-y-2">
                   <Label>Product Name</Label>
-                  <Input
+                  <ProductNameInput
                     value={item.productName}
-                    onChange={(e) =>
-                      updateItem(index, "productName", e.target.value)
+                    onChange={(value) =>
+                      updateItem(index, "productName", value)
                     }
+                    existingNames={existingNames}
                     placeholder="Product name"
                   />
                 </div>

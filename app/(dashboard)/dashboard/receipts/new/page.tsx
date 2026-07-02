@@ -38,6 +38,10 @@ export default function NewReceiptPage() {
     api.categories.getCategories,
     user?._id ? { userId: user._id } : "skip"
   );
+  const existingProducts = useQuery(
+    api.products.getProductNames,
+    user?._id ? { userId: user._id } : "skip"
+  );
 
   const [mode, setMode] = useState<Mode>("choose");
   const [scannedData, setScannedData] = useState<ScannedData | null>(null);
@@ -85,11 +89,17 @@ export default function NewReceiptPage() {
         }
       }
 
-      // Scan receipt with Claude
+      // Scan receipt with Claude, telling it which products the user already
+      // tracks so repeat purchases come back under the same name.
       const scanResponse = await fetch("/api/scan-receipt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: imageData, mimeType, categorySlugs }),
+        body: JSON.stringify({
+          image: imageData,
+          mimeType,
+          categorySlugs,
+          knownProducts: existingProducts?.map((p) => p.name) ?? [],
+        }),
       });
 
       const result = await scanResponse.json();

@@ -10,6 +10,8 @@
 
 import type * as budgets from "../budgets.js";
 import type * as categories from "../categories.js";
+import type * as migrations from "../migrations.js";
+import type * as productMatching from "../productMatching.js";
 import type * as products from "../products.js";
 import type * as receipts from "../receipts.js";
 import type * as stats from "../stats.js";
@@ -24,6 +26,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   budgets: typeof budgets;
   categories: typeof categories;
+  migrations: typeof migrations;
+  productMatching: typeof productMatching;
   products: typeof products;
   receipts: typeof receipts;
   stats: typeof stats;

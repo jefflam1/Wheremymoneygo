@@ -53,6 +53,19 @@ export const getProducts = query({
   },
 });
 
+// Lightweight name list for autocomplete in the receipt form and for the
+// scanner prompt — no price history lookups.
+export const getProductNames = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const products = await ctx.db
+      .query("products")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    return products.map((p) => ({ _id: p._id, name: p.name }));
+  },
+});
+
 export const searchProducts = query({
   args: {
     userId: v.id("users"),

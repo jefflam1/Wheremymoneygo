@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { buildProductMatcher, normalizeProductName } from "./productMatching";
 
 export const createReceipt = mutation({
   args: {
@@ -36,35 +37,19 @@ export const createReceipt = mutation({
     });
 
     // Create receipt items and track prices
+    const matcher = await buildProductMatcher(ctx, args.userId);
     for (const item of items) {
-      const normalizedName = item.productName.toLowerCase().trim();
-
-      // Find or create product
-      let product = await ctx.db
-        .query("products")
-        .withIndex("by_user_normalized", (q) =>
-          q.eq("userId", args.userId).eq("normalizedName", normalizedName)
-        )
-        .first();
-
-      let productId = product?._id;
-
-      if (!product) {
-        productId = await ctx.db.insert("products", {
-          name: item.productName,
-          normalizedName,
-          category: item.category,
-          userId: args.userId,
-          createdAt: Date.now(),
-        });
-      }
+      const productId = await matcher.findOrCreate(
+        item.productName,
+        item.category
+      );
 
       // Create receipt item
       const receiptItemId = await ctx.db.insert("receiptItems", {
         receiptId,
         userId: args.userId,
         productName: item.productName,
-        normalizedName,
+        normalizedName: normalizeProductName(item.productName),
         price: item.price,
         quantity: item.quantity,
         category: item.category,
@@ -72,17 +57,15 @@ export const createReceipt = mutation({
       });
 
       // Create price history entry
-      if (productId) {
-        await ctx.db.insert("priceHistory", {
-          productId,
-          receiptId,
-          receiptItemId,
-          storeName: args.storeName,
-          price: item.price,
-          date: args.date,
-          userId: args.userId,
-        });
-      }
+      await ctx.db.insert("priceHistory", {
+        productId,
+        receiptId,
+        receiptItemId,
+        storeName: args.storeName,
+        price: item.price,
+        date: args.date,
+        userId: args.userId,
+      });
     }
 
     return receiptId;
@@ -229,50 +212,33 @@ export const updateReceipt = mutation({
     }
 
     // Re-create items and price history
+    const matcher = await buildProductMatcher(ctx, userId);
     for (const item of items) {
-      const normalizedName = item.productName.toLowerCase().trim();
-
-      let product = await ctx.db
-        .query("products")
-        .withIndex("by_user_normalized", (q) =>
-          q.eq("userId", userId).eq("normalizedName", normalizedName)
-        )
-        .first();
-
-      let productId = product?._id;
-
-      if (!product) {
-        productId = await ctx.db.insert("products", {
-          name: item.productName,
-          normalizedName,
-          category: item.category,
-          userId,
-          createdAt: Date.now(),
-        });
-      }
+      const productId = await matcher.findOrCreate(
+        item.productName,
+        item.category
+      );
 
       const receiptItemId = await ctx.db.insert("receiptItems", {
         receiptId,
         userId,
         productName: item.productName,
-        normalizedName,
+        normalizedName: normalizeProductName(item.productName),
         price: item.price,
         quantity: item.quantity,
         category: item.category,
         productId,
       });
 
-      if (productId) {
-        await ctx.db.insert("priceHistory", {
-          productId,
-          receiptId,
-          receiptItemId,
-          storeName: args.storeName,
-          price: item.price,
-          date: args.date,
-          userId,
-        });
-      }
+      await ctx.db.insert("priceHistory", {
+        productId,
+        receiptId,
+        receiptItemId,
+        storeName: args.storeName,
+        price: item.price,
+        date: args.date,
+        userId,
+      });
     }
 
     return receiptId;

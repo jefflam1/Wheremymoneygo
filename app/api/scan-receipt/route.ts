@@ -7,10 +7,20 @@ const anthropic = new Anthropic({
 
 const DEFAULT_CATEGORIES = "groceries, electronics, clothing, food, household, health, entertainment, other";
 
-function buildPrompt(categorySlugs?: string[]): string {
+// Cap how many known product names go into the prompt to bound its size.
+const MAX_KNOWN_PRODUCTS = 300;
+
+function buildPrompt(categorySlugs?: string[], knownProducts?: string[]): string {
   const categoryList = categorySlugs?.length
     ? categorySlugs.join(", ")
     : DEFAULT_CATEGORIES;
+
+  const knownProductsSection = knownProducts?.length
+    ? `\n\nThe user already tracks these products from previous receipts:
+${knownProducts.slice(0, MAX_KNOWN_PRODUCTS).map((name) => `- ${name}`).join("\n")}
+
+When a line item is the same product as one of these (same variant and size, allowing for abbreviations and spelling differences), use that EXACT existing name as "productName" instead of inventing a new spelling. Only use a new name when the item genuinely isn't in the list — never map different variants or sizes onto an existing name.`
+    : "";
 
   return `Analyze this receipt image and extract the following information. Return ONLY valid JSON with no additional text or markdown formatting.
 
@@ -41,7 +51,7 @@ Important:
 - Discounts, coupons, loyalty savings, and "you saved" lines are discounts. Report their total as a single POSITIVE number in "discount".
 - Record each item's "price" as its ORIGINAL price before any discount. Put the savings in "discount" — do NOT lower item prices to account for a discount.
 - The numbers should satisfy: subtotal − discount + tax = total. If they don't reconcile, re-read the receipt rather than altering item prices.
-- If you cannot determine a required field, use null`;
+- If you cannot determine a required field, use null${knownProductsSection}`;
 }
 
 type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
@@ -52,7 +62,7 @@ function isPdf(mimeType: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    const { image, mimeType, categorySlugs } = await request.json();
+    const { image, mimeType, categorySlugs, knownProducts } = await request.json();
 
     if (!image) {
       return NextResponse.json(
@@ -93,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     contentBlocks.push({
       type: "text",
-      text: buildPrompt(categorySlugs),
+      text: buildPrompt(categorySlugs, knownProducts),
     });
 
     const response = await anthropic.messages.create({
