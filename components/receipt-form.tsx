@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -79,6 +79,47 @@ export function ReceiptForm({
       seedDefaults({ userId });
     }
   }, [categories, userId, seedDefaults]);
+
+  // The select trigger shows the raw slug when the stored category isn't one
+  // of the listed items (e.g. a scanned parent slug while only subcategories
+  // are listed). Map known slugs to their display names and fall back to a
+  // capitalized version of the slug.
+  const categoryLabels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const cat of categories ?? []) {
+      map.set(cat.slug, cat.name);
+      for (const sub of cat.children) {
+        map.set(sub.slug, sub.name);
+      }
+    }
+    return map;
+  }, [categories]);
+
+  const formatCategoryLabel = (slug: string) => {
+    const known = categoryLabels.get(slug);
+    if (known) return known;
+    const words = slug.replace(/[-_]+/g, " ").trim();
+    return words
+      ? words[0].toUpperCase() + words.slice(1).toLowerCase()
+      : slug;
+  };
+
+  const PAYMENT_LABELS: Record<string, string> = {
+    cash: "Cash",
+    credit: "Credit Card",
+    debit: "Debit Card",
+    gift_card: "Gift Card",
+    other: "Other",
+  };
+
+  const formatPaymentLabel = (value: string) => {
+    const known = PAYMENT_LABELS[value.toLowerCase()];
+    if (known) return known;
+    const words = value.replace(/[-_]+/g, " ").trim();
+    return words
+      ? words[0].toUpperCase() + words.slice(1).toLowerCase()
+      : value;
+  };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<ReceiptFormData>({
@@ -358,7 +399,11 @@ export function ReceiptForm({
                     onValueChange={(value) => value && updateItem(index, "category", value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select" />
+                      <SelectValue>
+                        {(value: string | null) =>
+                          value ? formatCategoryLabel(value) : "Select"
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {categories?.map((cat) =>
@@ -484,7 +529,11 @@ export function ReceiptForm({
                 onValueChange={(value) => updateField("paymentMethod", value ?? undefined)}
               >
                 <SelectTrigger id="paymentMethod">
-                  <SelectValue placeholder="Select" />
+                  <SelectValue>
+                    {(value: string | null) =>
+                      value ? formatPaymentLabel(value) : "Select"
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cash">Cash</SelectItem>
