@@ -29,6 +29,7 @@ import {
   ArrowLeft,
   Trash2,
   Camera,
+  Copy,
   Edit,
   Pencil,
   AlertTriangle,
@@ -50,6 +51,7 @@ export default function ReceiptDetailPage({
   const router = useRouter();
   const { user } = useCurrentUser();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   const currency = user?.currency ?? DEFAULT_CURRENCY;
 
   // Tick line items to see their combined cost (e.g. what a friend owes).
@@ -86,6 +88,40 @@ export default function ReceiptDetailPage({
   );
   const deleteReceipt = useMutation(api.receipts.deleteReceipt);
   const setPaidByFriends = useMutation(api.receipts.setPaidByFriends);
+  const createReceipt = useMutation(api.receipts.createReceipt);
+
+  // Duplicate the receipt (without the image — the copy has no scan of its
+  // own) and jump straight into editing the new copy.
+  const handleCopy = async () => {
+    if (!receipt) return;
+    setIsCopying(true);
+    try {
+      const newId = await createReceipt({
+        userId: receipt.userId,
+        storeName: receipt.storeName,
+        storeAddress: receipt.storeAddress,
+        date: receipt.date,
+        subtotal: receipt.subtotal,
+        discount: receipt.discount,
+        tax: receipt.tax,
+        paidByFriends: receipt.paidByFriends,
+        total: receipt.total,
+        paymentMethod: receipt.paymentMethod,
+        currency: receipt.currency,
+        isManualEntry: true,
+        items: receipt.items.map((item) => ({
+          productName: item.productName,
+          price: item.price,
+          quantity: item.quantity,
+          category: item.category,
+        })),
+      });
+      router.push(`/dashboard/receipts/${newId}/edit`);
+    } catch (error) {
+      console.error("Failed to copy:", error);
+      setIsCopying(false);
+    }
+  };
 
   // Build slug -> display label map (e.g. "breakfast" -> "Food > Breakfast")
   const categoryLabels = useMemo(() => {
@@ -140,6 +176,16 @@ export default function ReceiptDetailPage({
           Back
         </Button>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleCopy}
+            disabled={isCopying}
+            title="Copy receipt and edit"
+            aria-label="Copy receipt and edit"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
           <Button variant="outline" size="icon" render={<Link href={`/dashboard/receipts/${id}/edit`} />}>
             <Pencil className="h-4 w-4" />
           </Button>
