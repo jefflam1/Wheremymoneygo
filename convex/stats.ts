@@ -191,9 +191,10 @@ export const getCategoryDetail = query({
   },
 });
 
-// Total spend per calendar month across a date range. Returns one entry for
-// every month in [startDate, endDate), including months with zero spend, so the
-// trend chart shows an unbroken timeline.
+// Itemized spend per calendar month across a date range, summed from line
+// items (price × quantity) so it matches getCategoryBreakdown's grandTotal.
+// Returns one entry for every month in [startDate, endDate), including months
+// with zero spend, so the trend chart shows an unbroken timeline.
 export const getMonthlyTrend = query({
   args: {
     userId: v.id("users"),
@@ -220,7 +221,15 @@ export const getMonthlyTrend = query({
       const d = new Date(receipt.date);
       const key = `${d.getFullYear()}-${d.getMonth()}`;
       const bucket = buckets.get(key);
-      if (bucket) bucket.total += receipt.total;
+      if (!bucket) continue;
+
+      const items = await ctx.db
+        .query("receiptItems")
+        .withIndex("by_receipt", (q) => q.eq("receiptId", receipt._id))
+        .collect();
+      for (const item of items) {
+        bucket.total += item.price * item.quantity;
+      }
     }
 
     return Array.from(buckets.values()).sort((a, b) =>

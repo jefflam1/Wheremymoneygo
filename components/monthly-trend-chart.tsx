@@ -38,7 +38,7 @@ export function MonthlyTrendChart({
   const max = Math.max(...data.map((d) => d.total), 1);
 
   return (
-    <div className="flex items-end justify-between gap-2 h-40 px-1">
+    <div className="flex items-end justify-between gap-2 px-1">
       {data.map((point, i) => {
         const heightPct = (point.total / max) * 100;
         const isSelected = i === selectedIndex;
@@ -50,7 +50,7 @@ export function MonthlyTrendChart({
             <span className="text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
               {point.total > 0 ? formatMoney(point.total, currency) : ""}
             </span>
-            <div className="flex w-full flex-1 items-end justify-center">
+            <div className="flex h-28 w-full items-end justify-center">
               <div
                 className={`w-full max-w-10 rounded-t transition-colors ${
                   isSelected ? "bg-primary" : "bg-primary/30"
