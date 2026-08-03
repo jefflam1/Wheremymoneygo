@@ -7,17 +7,10 @@ export const getCategoryBreakdown = query({
     userId: v.id("users"),
     startDate: v.number(),
     endDate: v.number(),
+    paymentMethod: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const receipts = await ctx.db
-      .query("receipts")
-      .withIndex("by_user_date", (q) =>
-        q
-          .eq("userId", args.userId)
-          .gte("date", args.startDate)
-          .lt("date", args.endDate)
-      )
-      .collect();
+    const receipts = await fetchReceiptsInRange(ctx, args);
 
     const categories = await ctx.db
       .query("categories")
@@ -75,6 +68,32 @@ export const getCategoryBreakdown = query({
   },
 });
 
+// Receipts for a user in [startDate, endDate), optionally narrowed to a single
+// payment method. Shared by the stats queries.
+async function fetchReceiptsInRange(
+  ctx: QueryCtx,
+  args: {
+    userId: Id<"users">;
+    startDate: number;
+    endDate: number;
+    paymentMethod?: string;
+  }
+) {
+  const receipts = await ctx.db
+    .query("receipts")
+    .withIndex("by_user_date", (q) =>
+      q
+        .eq("userId", args.userId)
+        .gte("date", args.startDate)
+        .lt("date", args.endDate)
+    )
+    .collect();
+
+  return args.paymentMethod === undefined
+    ? receipts
+    : receipts.filter((r) => r.paymentMethod === args.paymentMethod);
+}
+
 // Build slug -> name and slug -> top-level parent slug maps for a user's
 // categories. Shared by the breakdown and drill-down queries.
 async function buildCategoryMaps(ctx: QueryCtx, userId: Id<"users">) {
@@ -105,17 +124,10 @@ export const getCategoryDetail = query({
     startDate: v.number(),
     endDate: v.number(),
     parentSlug: v.string(),
+    paymentMethod: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const receipts = await ctx.db
-      .query("receipts")
-      .withIndex("by_user_date", (q) =>
-        q
-          .eq("userId", args.userId)
-          .gte("date", args.startDate)
-          .lt("date", args.endDate)
-      )
-      .collect();
+    const receipts = await fetchReceiptsInRange(ctx, args);
 
     const { slugToName, slugToParentSlug } = await buildCategoryMaps(
       ctx,
@@ -187,17 +199,10 @@ export const getMonthlyTrend = query({
     userId: v.id("users"),
     startDate: v.number(),
     endDate: v.number(),
+    paymentMethod: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const receipts = await ctx.db
-      .query("receipts")
-      .withIndex("by_user_date", (q) =>
-        q
-          .eq("userId", args.userId)
-          .gte("date", args.startDate)
-          .lt("date", args.endDate)
-      )
-      .collect();
+    const receipts = await fetchReceiptsInRange(ctx, args);
 
     // Seed a bucket for every month in the range.
     const buckets = new Map<string, { year: number; month: number; total: number }>();

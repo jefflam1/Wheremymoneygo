@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Trash2, Plus, Loader2, Image as ImageIcon, FileText } from "lucide-react";
 import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
+import { PAYMENT_METHODS, formatPaymentLabel } from "@/lib/payment-methods";
 import { ProductNameInput } from "@/components/product-name-input";
 
 interface ReceiptItem {
@@ -102,23 +103,6 @@ export function ReceiptForm({
     return words
       ? words[0].toUpperCase() + words.slice(1).toLowerCase()
       : slug;
-  };
-
-  const PAYMENT_LABELS: Record<string, string> = {
-    cash: "Cash",
-    credit: "Credit Card",
-    debit: "Debit Card",
-    gift_card: "Gift Card",
-    other: "Other",
-  };
-
-  const formatPaymentLabel = (value: string) => {
-    const known = PAYMENT_LABELS[value.toLowerCase()];
-    if (known) return known;
-    const words = value.replace(/[-_]+/g, " ").trim();
-    return words
-      ? words[0].toUpperCase() + words.slice(1).toLowerCase()
-      : value;
   };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -540,11 +524,11 @@ export function ReceiptForm({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="credit">Credit Card</SelectItem>
-                  <SelectItem value="debit">Debit Card</SelectItem>
-                  <SelectItem value="gift_card">Gift Card</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {PAYMENT_METHODS.map((method) => (
+                    <SelectItem key={method.value} value={method.value}>
+                      {method.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

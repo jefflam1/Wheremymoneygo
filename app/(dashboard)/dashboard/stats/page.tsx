@@ -19,6 +19,7 @@ import {
   PieChart as PieChartIcon,
 } from "lucide-react";
 import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currencies";
+import { PAYMENT_METHODS, formatPaymentLabel } from "@/lib/payment-methods";
 import { cn } from "@/lib/utils";
 import {
   CategoryPieChart,
@@ -64,6 +65,8 @@ export default function StatsPage() {
   const [month, setMonth] = useState(now.getMonth());
   const [showPicker, setShowPicker] = useState(false);
   const [pickerYear, setPickerYear] = useState(now.getFullYear());
+  // null = all payment methods
+  const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
 
   const { start: startDate, end: endDate } = useMemo(
     () => getMonthRange(year, month),
@@ -79,13 +82,25 @@ export default function StatsPage() {
 
   const breakdown = useQuery(
     api.stats.getCategoryBreakdown,
-    user?._id ? { userId: user._id, startDate, endDate } : "skip"
+    user?._id
+      ? {
+          userId: user._id,
+          startDate,
+          endDate,
+          paymentMethod: paymentMethod ?? undefined,
+        }
+      : "skip"
   );
 
   const trend = useQuery(
     api.stats.getMonthlyTrend,
     user?._id
-      ? { userId: user._id, startDate: trendStart, endDate: trendEnd }
+      ? {
+          userId: user._id,
+          startDate: trendStart,
+          endDate: trendEnd,
+          paymentMethod: paymentMethod ?? undefined,
+        }
       : "skip"
   );
 
@@ -177,6 +192,39 @@ export default function StatsPage() {
         </button>
       </div>
 
+      {/* Payment method filter */}
+      <div className="flex gap-2 overflow-x-auto px-4 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <button
+          onClick={() => setPaymentMethod(null)}
+          className={cn(
+            "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+            paymentMethod === null
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border hover:bg-muted"
+          )}
+        >
+          All
+        </button>
+        {PAYMENT_METHODS.map((method) => (
+          <button
+            key={method.value}
+            onClick={() =>
+              setPaymentMethod(
+                paymentMethod === method.value ? null : method.value
+              )
+            }
+            className={cn(
+              "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              paymentMethod === method.value
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border hover:bg-muted"
+            )}
+          >
+            {method.label}
+          </button>
+        ))}
+      </div>
+
       {showPicker ? (
         <MonthYearPicker
           pickerYear={pickerYear}
@@ -193,7 +241,8 @@ export default function StatsPage() {
         <div className="px-4 py-16 text-center">
           <PieChartIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <p className="text-muted-foreground">
-            No spending recorded in {formatMonth(year, month)}
+            No {paymentMethod ? `${formatPaymentLabel(paymentMethod)} ` : ""}
+            spending recorded in {formatMonth(year, month)}
           </p>
         </div>
       ) : (
@@ -209,13 +258,16 @@ export default function StatsPage() {
             </div>
           </div>
 
-          {/* Budget progress */}
-          <BudgetProgress
-            budgets={budgets ?? []}
-            grandTotal={breakdown.grandTotal}
-            categoryTotals={slices}
-            currency={currency}
-          />
+          {/* Budget progress — hidden while filtered, since budgets cover all
+              spending and comparing them to a single payment method misleads */}
+          {paymentMethod === null && (
+            <BudgetProgress
+              budgets={budgets ?? []}
+              grandTotal={breakdown.grandTotal}
+              categoryTotals={slices}
+              currency={currency}
+            />
+          )}
 
           {/* Spending trend */}
           {trend && trend.length > 0 && (
@@ -302,6 +354,7 @@ export default function StatsPage() {
                         parentSlug={selectedCategory.slug}
                         startDate={startDate}
                         endDate={endDate}
+                        paymentMethod={paymentMethod ?? undefined}
                         currency={currency}
                       />
                     )}
@@ -321,6 +374,7 @@ interface CategoryDetailProps {
   parentSlug: string;
   startDate: number;
   endDate: number;
+  paymentMethod?: string;
   currency: string;
 }
 
@@ -329,6 +383,7 @@ function CategoryDetail({
   parentSlug,
   startDate,
   endDate,
+  paymentMethod,
   currency,
 }: CategoryDetailProps) {
   const detail = useQuery(api.stats.getCategoryDetail, {
@@ -336,6 +391,7 @@ function CategoryDetail({
     startDate,
     endDate,
     parentSlug,
+    paymentMethod,
   });
 
   if (!detail) {
