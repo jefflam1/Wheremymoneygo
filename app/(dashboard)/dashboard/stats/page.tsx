@@ -7,6 +7,14 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -44,6 +52,15 @@ const MONTH_LABELS = [
   "Dec",
 ];
 
+type Duration = "weekly" | "monthly" | "annually" | "period";
+
+const DURATIONS: { value: Duration; label: string }[] = [
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "annually", label: "Annually" },
+  { value: "period", label: "Period" },
+];
+
 function getMonthRange(year: number, month: number) {
   const start = new Date(year, month, 1).getTime();
   const end = new Date(year, month + 1, 1).getTime();
@@ -57,32 +74,120 @@ function formatMonth(year: number, month: number) {
   });
 }
 
+// Local midnight on the Monday of the week containing `d`.
+function getWeekStart(d: Date) {
+  const daysSinceMonday = (d.getDay() + 6) % 7;
+  return new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate() - daysSinceMonday
+  ).getTime();
+}
+
+function formatWeek(weekStart: number) {
+  const start = new Date(weekStart);
+  const end = new Date(
+    start.getFullYear(),
+    start.getMonth(),
+    start.getDate() + 6
+  );
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${fmt(start)} – ${fmt(end)}, ${end.getFullYear()}`;
+}
+
+// yyyy-mm-dd <-> local-midnight timestamp, avoiding the UTC shift that
+// new Date("yyyy-mm-dd") introduces.
+function toDateInput(ts: number) {
+  const d = new Date(ts);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function parseDateInput(value: string) {
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y, m - 1, d).getTime();
+}
+
 export default function StatsPage() {
   const { user, isLoading: userLoading } = useCurrentUser();
 
   const now = new Date();
+  const [duration, setDuration] = useState<Duration>("monthly");
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
+  const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
+  // Custom period defaults: start of the current month through today.
+  const [periodStart, setPeriodStart] = useState(() =>
+    toDateInput(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime())
+  );
+  const [periodEnd, setPeriodEnd] = useState(() => toDateInput(Date.now()));
   const [showPicker, setShowPicker] = useState(false);
   const [pickerYear, setPickerYear] = useState(now.getFullYear());
   // null = all payment methods
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
 
-  const { start: startDate, end: endDate } = useMemo(
-    () => getMonthRange(year, month),
-    [year, month]
-  );
+  const periodValid =
+    periodStart !== "" &&
+    periodEnd !== "" &&
+    parseDateInput(periodStart) <= parseDateInput(periodEnd);
 
-  // Trailing TREND_MONTHS window ending with the selected month.
+  const { start: startDate, end: endDate } = useMemo(() => {
+    switch (duration) {
+      case "weekly": {
+        const s = new Date(weekStart);
+        const end = new Date(
+          s.getFullYear(),
+          s.getMonth(),
+          s.getDate() + 7
+        ).getTime();
+        return { start: weekStart, end };
+      }
+      case "annually":
+        return {
+          start: new Date(year, 0, 1).getTime(),
+          end: new Date(year + 1, 0, 1).getTime(),
+        };
+      case "period": {
+        if (!periodValid) return { start: 0, end: 0 };
+        const e = new Date(parseDateInput(periodEnd));
+        // End date is inclusive, so the range runs to the following midnight.
+        return {
+          start: parseDateInput(periodStart),
+          end: new Date(
+            e.getFullYear(),
+            e.getMonth(),
+            e.getDate() + 1
+          ).getTime(),
+        };
+      }
+      default:
+        return getMonthRange(year, month);
+    }
+  }, [duration, weekStart, year, month, periodStart, periodEnd, periodValid]);
+
+  // Trailing TREND_MONTHS window ending with the month the range ends in.
   const { trendStart, trendEnd } = useMemo(() => {
-    const start = new Date(year, month - (TREND_MONTHS - 1), 1).getTime();
-    const end = new Date(year, month + 1, 1).getTime();
+    const anchor = endDate > 0 ? new Date(endDate - 1) : new Date();
+    const start = new Date(
+      anchor.getFullYear(),
+      anchor.getMonth() - (TREND_MONTHS - 1),
+      1
+    ).getTime();
+    const end = new Date(
+      anchor.getFullYear(),
+      anchor.getMonth() + 1,
+      1
+    ).getTime();
     return { trendStart: start, trendEnd: end };
-  }, [year, month]);
+  }, [endDate]);
+
+  const rangeReady = duration !== "period" || periodValid;
 
   const breakdown = useQuery(
     api.stats.getCategoryBreakdown,
-    user?._id
+    user?._id && rangeReady
       ? {
           userId: user._id,
           startDate,
@@ -94,7 +199,7 @@ export default function StatsPage() {
 
   const trend = useQuery(
     api.stats.getMonthlyTrend,
-    user?._id
+    user?._id && rangeReady
       ? {
           userId: user._id,
           startDate: trendStart,
@@ -116,8 +221,15 @@ export default function StatsPage() {
     percent: number;
   } | null>(null);
 
-  const goToPrevMonth = () => {
-    if (month === 0) {
+  const goToPrev = () => {
+    if (duration === "weekly") {
+      const d = new Date(weekStart);
+      setWeekStart(
+        new Date(d.getFullYear(), d.getMonth(), d.getDate() - 7).getTime()
+      );
+    } else if (duration === "annually") {
+      setYear(year - 1);
+    } else if (month === 0) {
       setYear(year - 1);
       setMonth(11);
     } else {
@@ -125,8 +237,15 @@ export default function StatsPage() {
     }
   };
 
-  const goToNextMonth = () => {
-    if (month === 11) {
+  const goToNext = () => {
+    if (duration === "weekly") {
+      const d = new Date(weekStart);
+      setWeekStart(
+        new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7).getTime()
+      );
+    } else if (duration === "annually") {
+      setYear(year + 1);
+    } else if (month === 11) {
       setYear(year + 1);
       setMonth(0);
     } else {
@@ -134,8 +253,22 @@ export default function StatsPage() {
     }
   };
 
-  const isCurrentMonth =
-    year === now.getFullYear() && month === now.getMonth();
+  // Whether the selected range already includes today — no navigating forward.
+  const atPresent =
+    duration === "weekly"
+      ? weekStart >= getWeekStart(now)
+      : duration === "annually"
+        ? year >= now.getFullYear()
+        : year === now.getFullYear() && month === now.getMonth();
+
+  const rangeLabel =
+    duration === "weekly"
+      ? formatWeek(weekStart)
+      : duration === "annually"
+        ? String(year)
+        : duration === "period"
+          ? "the selected period"
+          : formatMonth(year, month);
 
   const togglePicker = () => {
     if (!showPicker) setPickerYear(year);
@@ -166,66 +299,121 @@ export default function StatsPage() {
 
   return (
     <div>
-      {/* Month selector */}
-      <div className="flex items-center justify-between px-4 py-2">
-        <button
-          onClick={goToPrevMonth}
-          className="p-1 hover:bg-muted transition-colors"
-          aria-label="Previous month"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <button
-          onClick={togglePicker}
-          className="text-sm font-semibold hover:bg-muted px-2 py-1 transition-colors"
-          aria-expanded={showPicker}
-        >
-          {formatMonth(year, month)}
-        </button>
-        <button
-          onClick={goToNextMonth}
-          disabled={isCurrentMonth}
-          className="p-1 hover:bg-muted transition-colors disabled:opacity-30"
-          aria-label="Next month"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      </div>
-
-      {/* Payment method filter */}
-      <div className="flex gap-2 overflow-x-auto px-4 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <button
-          onClick={() => setPaymentMethod(null)}
-          className={cn(
-            "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-            paymentMethod === null
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border hover:bg-muted"
-          )}
-        >
-          All
-        </button>
-        {PAYMENT_METHODS.map((method) => (
+      {/* Range selector: chevrons for week/month/year; period picks dates below */}
+      {duration !== "period" && (
+        <div className="flex items-center justify-between px-4 py-2">
           <button
-            key={method.value}
-            onClick={() =>
-              setPaymentMethod(
-                paymentMethod === method.value ? null : method.value
-              )
-            }
+            onClick={goToPrev}
+            className="p-1 hover:bg-muted transition-colors"
+            aria-label="Previous"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          {duration === "monthly" ? (
+            <button
+              onClick={togglePicker}
+              className="text-sm font-semibold hover:bg-muted px-2 py-1 transition-colors"
+              aria-expanded={showPicker}
+            >
+              {rangeLabel}
+            </button>
+          ) : (
+            <span className="text-sm font-semibold px-2 py-1 tabular-nums">
+              {rangeLabel}
+            </span>
+          )}
+          <button
+            onClick={goToNext}
+            disabled={atPresent}
+            className="p-1 hover:bg-muted transition-colors disabled:opacity-30"
+            aria-label="Next"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+
+      {/* Payment method filter, with the duration dropdown pinned at the end */}
+      <div className="flex items-center gap-2 px-4 pb-2">
+        <div className="flex flex-1 gap-2 overflow-x-auto min-w-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            onClick={() => setPaymentMethod(null)}
             className={cn(
               "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              paymentMethod === method.value
+              paymentMethod === null
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border hover:bg-muted"
             )}
           >
-            {method.label}
+            All
           </button>
-        ))}
+          {PAYMENT_METHODS.map((method) => (
+            <button
+              key={method.value}
+              onClick={() =>
+                setPaymentMethod(
+                  paymentMethod === method.value ? null : method.value
+                )
+              }
+              className={cn(
+                "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                paymentMethod === method.value
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border hover:bg-muted"
+              )}
+            >
+              {method.label}
+            </button>
+          ))}
+        </div>
+        <Select
+          value={duration}
+          onValueChange={(v) => {
+            setDuration(v as Duration);
+            setShowPicker(false);
+          }}
+        >
+          <SelectTrigger
+            size="sm"
+            className="shrink-0"
+            aria-label="Duration"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end">
+            {DURATIONS.map((d) => (
+              <SelectItem key={d.value} value={d.value}>
+                {d.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {showPicker ? (
+      {/* Custom period date range */}
+      {duration === "period" && (
+        <div className="flex items-center gap-2 px-4 pb-2">
+          <Input
+            type="date"
+            value={periodStart}
+            max={periodEnd || undefined}
+            onChange={(e) => setPeriodStart(e.target.value)}
+            aria-label="Start date"
+            className="flex-1 min-w-0"
+          />
+          <span className="text-sm text-muted-foreground shrink-0">to</span>
+          <Input
+            type="date"
+            value={periodEnd}
+            min={periodStart || undefined}
+            onChange={(e) => setPeriodEnd(e.target.value)}
+            aria-label="End date"
+            className="flex-1 min-w-0"
+          />
+        </div>
+      )}
+
+      {showPicker && duration === "monthly" ? (
         <MonthYearPicker
           pickerYear={pickerYear}
           selectedYear={year}
@@ -235,6 +423,13 @@ export default function StatsPage() {
           onPickerYearChange={setPickerYear}
           onSelect={selectMonth}
         />
+      ) : !rangeReady ? (
+        <div className="px-4 py-16 text-center">
+          <PieChartIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">
+            Choose a start and end date to see stats
+          </p>
+        </div>
       ) : !breakdown ? (
         <StatsContentSkeleton />
       ) : !hasData ? (
@@ -242,7 +437,7 @@ export default function StatsPage() {
           <PieChartIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <p className="text-muted-foreground">
             No {paymentMethod ? `${formatPaymentLabel(paymentMethod)} ` : ""}
-            spending recorded in {formatMonth(year, month)}
+            spending recorded in {rangeLabel}
           </p>
         </div>
       ) : (
@@ -258,9 +453,10 @@ export default function StatsPage() {
             </div>
           </div>
 
-          {/* Budget progress — hidden while filtered, since budgets cover all
-              spending and comparing them to a single payment method misleads */}
-          {paymentMethod === null && (
+          {/* Budget progress — hidden while filtered or off the monthly view,
+              since budgets are monthly amounts covering all spending and
+              comparing them to a payment method or another range misleads */}
+          {paymentMethod === null && duration === "monthly" && (
             <BudgetProgress
               budgets={budgets ?? []}
               grandTotal={breakdown.grandTotal}
@@ -343,8 +539,8 @@ export default function StatsPage() {
                       </span>
                     </SheetTitle>
                     <p className="text-xs text-muted-foreground tabular-nums">
-                      {selectedCategory.percent.toFixed(1)}% of this month&apos;s
-                      spending
+                      {selectedCategory.percent.toFixed(1)}% of spending in this
+                      period
                     </p>
                   </SheetHeader>
                   <div className="overflow-y-auto px-4 pb-6 pt-2">
