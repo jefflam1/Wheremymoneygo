@@ -107,8 +107,11 @@ export async function POST(request: NextRequest) {
     });
 
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-5",
       max_tokens: 4096,
+      // Sonnet 5 runs adaptive thinking by default; keep it off so thinking
+      // tokens never eat into max_tokens and truncate the JSON.
+      thinking: { type: "disabled" },
       messages: [
         {
           role: "user",
