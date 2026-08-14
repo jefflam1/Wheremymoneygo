@@ -126,14 +126,6 @@ export function ReceiptForm({
     paymentMethod: initialData?.paymentMethod ?? undefined,
   });
 
-  // When a receipt is scanned or edited it comes with an authoritative total
-  // (which may already account for discounts the line items don't reflect), so
-  // treat it as manual and never overwrite it from the line items. Only a
-  // brand-new blank form starts in auto-calculated mode.
-  const [totalManuallyEdited, setTotalManuallyEdited] = useState(
-    isEditMode || (initialData?.total ?? 0) > 0
-  );
-
   const updateField = <K extends keyof ReceiptFormData>(
     field: K,
     value: ReceiptFormData[K]
@@ -180,16 +172,14 @@ export function ReceiptForm({
     return Math.max(0, itemsTotal - discount + tax - paidByFriends);
   };
 
-  // Keep the total in sync with the line items unless the user has typed their
-  // own total (e.g. a scanned receipt total that doesn't reconcile exactly).
+  // The total always tracks the other fields: items − discount + tax − paid
+  // by friends. Typing in the Total field overrides it until the next change.
   const computedTotal = calculateTotal();
   useEffect(() => {
-    if (!totalManuallyEdited) {
-      setFormData((prev) =>
-        prev.total === computedTotal ? prev : { ...prev, total: computedTotal }
-      );
-    }
-  }, [computedTotal, totalManuallyEdited]);
+    setFormData((prev) =>
+      prev.total === computedTotal ? prev : { ...prev, total: computedTotal }
+    );
+  }, [computedTotal]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -501,10 +491,9 @@ export function ReceiptForm({
                 step="0.01"
                 min="0"
                 value={formData.total || ""}
-                onChange={(e) => {
-                  setTotalManuallyEdited(true);
-                  updateField("total", parseFloat(e.target.value) || 0);
-                }}
+                onChange={(e) =>
+                  updateField("total", parseFloat(e.target.value) || 0)
+                }
                 placeholder="0.00"
                 required
               />
@@ -535,9 +524,7 @@ export function ReceiptForm({
             </div>
           </div>
           <div className="flex justify-between items-center pt-4 border-t">
-            <span className="text-muted-foreground">
-              {totalManuallyEdited ? "Total (manual):" : "Calculated Total:"}
-            </span>
+            <span className="text-muted-foreground">Calculated Total:</span>
             <span className="text-xl font-bold">
               {formatMoney(formData.total, currency)}
             </span>
