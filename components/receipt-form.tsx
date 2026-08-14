@@ -128,9 +128,10 @@ export function ReceiptForm({
 
   // When a receipt is scanned or edited it comes with an authoritative total
   // (which may already account for discounts the line items don't reflect), so
-  // treat that as a manual value and don't overwrite it from the line items.
+  // treat it as manual and never overwrite it from the line items. Only a
+  // brand-new blank form starts in auto-calculated mode.
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(
-    (initialData?.total ?? 0) > 0
+    isEditMode || (initialData?.total ?? 0) > 0
   );
 
   const updateField = <K extends keyof ReceiptFormData>(
@@ -534,24 +535,9 @@ export function ReceiptForm({
             </div>
           </div>
           <div className="flex justify-between items-center pt-4 border-t">
-            <div className="flex flex-col">
-              <span className="text-muted-foreground">
-                {totalManuallyEdited ? "Total (manual):" : "Calculated Total:"}
-              </span>
-              {totalManuallyEdited &&
-                Math.abs(formData.total - computedTotal) > 0.005 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTotalManuallyEdited(false);
-                      updateField("total", computedTotal);
-                    }}
-                    className="text-xs text-primary hover:underline text-left"
-                  >
-                    Items suggest {formatMoney(computedTotal, currency)} — use this
-                  </button>
-                )}
-            </div>
+            <span className="text-muted-foreground">
+              {totalManuallyEdited ? "Total (manual):" : "Calculated Total:"}
+            </span>
             <span className="text-xl font-bold">
               {formatMoney(formData.total, currency)}
             </span>
