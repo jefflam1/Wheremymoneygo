@@ -22,6 +22,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
   Store,
   Calendar,
   MapPin,
@@ -30,8 +38,11 @@ import {
   Trash2,
   Camera,
   Copy,
+  Check,
   Edit,
   Pencil,
+  Minus,
+  Plus,
   AlertTriangle,
   Image as ImageIcon,
   ListChecks,
@@ -55,23 +66,55 @@ export default function ReceiptDetailPage({
   const currency = user?.currency ?? DEFAULT_CURRENCY;
 
   // Tick line items to see their combined cost (e.g. what a friend owes).
+  // Selections are itemId -> selected quantity (may be less than the line's
+  // quantity when only part of a multi-quantity item is being counted).
   const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedQtys, setSelectedQtys] = useState<Map<string, number>>(
+    new Map()
+  );
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+  const [qtyPrompt, setQtyPrompt] = useState<{
+    itemId: string;
+    productName: string;
+    maxQty: number;
+    qty: number;
+  } | null>(null);
+  const [justCopied, setJustCopied] = useState(false);
 
-  const toggleSelected = (itemId: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(itemId)) next.delete(itemId);
-      else next.add(itemId);
+  const setSelectedQty = (itemId: string, qty: number) => {
+    setSelectedQtys((prev) => {
+      const next = new Map(prev);
+      if (qty <= 0) next.delete(itemId);
+      else next.set(itemId, qty);
       return next;
     });
   };
 
+  const toggleSelected = (item: {
+    _id: string;
+    productName: string;
+    quantity: number;
+  }) => {
+    if (selectedQtys.has(item._id)) {
+      setSelectedQty(item._id, 0);
+    } else if (item.quantity > 1) {
+      // Multi-quantity line: ask how many of them to include.
+      setQtyPrompt({
+        itemId: item._id,
+        productName: item.productName,
+        maxQty: item.quantity,
+        qty: item.quantity,
+      });
+    } else {
+      setSelectedQty(item._id, 1);
+    }
+  };
+
   const exitSelection = () => {
     setSelectionMode(false);
-    setSelectedIds(new Set());
+    setSelectedQtys(new Map());
     setShowSelectedOnly(false);
+    setQtyPrompt(null);
   };
 
   const handleSetPaidByFriends = async (amount: number) => {
@@ -321,23 +364,26 @@ export default function ReceiptDetailPage({
         </CardHeader>
         <CardContent>
           <div className="divide-y">
-            {receipt.items.map((item) =>
-              showSelectedOnly && !selectedIds.has(item._id) ? null : (
+            {receipt.items.map((item) => {
+              const selectedQty = selectedQtys.get(item._id);
+              if (showSelectedOnly && selectedQty === undefined) return null;
+              return (
                 <div
                   key={item._id}
                   className={`py-3 flex items-center justify-between gap-4 ${
                     selectionMode ? "cursor-pointer" : ""
                   }`}
                   onClick={
-                    selectionMode ? () => toggleSelected(item._id) : undefined
+                    selectionMode ? () => toggleSelected(item) : undefined
                   }
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {selectionMode && (
                       <input
                         type="checkbox"
-                        checked={selectedIds.has(item._id)}
-                        onChange={() => toggleSelected(item._id)}
+                        checked={selectedQty !== undefined}
+                        onChange={() => toggleSelected(item)}
+                        onClick={(e) => e.stopPropagation()}
                         aria-label={`Select ${item.productName}`}
                         className="h-4 w-4 shrink-0 accent-primary cursor-pointer"
                       />
@@ -351,6 +397,23 @@ export default function ReceiptDetailPage({
                           </Badge>
                         )}
                         {item.quantity > 1 && <span>Qty: {item.quantity}</span>}
+                        {selectedQty !== undefined && item.quantity > 1 && (
+                          <button
+                            type="button"
+                            className="text-primary font-medium underline-offset-2 hover:underline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setQtyPrompt({
+                                itemId: item._id,
+                                productName: item.productName,
+                                maxQty: item.quantity,
+                                qty: selectedQty,
+                              });
+                            }}
+                          >
+                            {selectedQty} of {item.quantity} selected
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -358,28 +421,64 @@ export default function ReceiptDetailPage({
                     {formatMoney(item.price * item.quantity, currency)}
                   </p>
                 </div>
-              )
-            )}
+              );
+            })}
           </div>
 
           {selectionMode && (() => {
-            const selectedTotal = receipt.items.reduce(
-              (sum, item) =>
-                selectedIds.has(item._id)
-                  ? sum + item.price * item.quantity
-                  : sum,
+            const selectedItems = receipt.items.flatMap((item) => {
+              const qty = selectedQtys.get(item._id);
+              return qty === undefined ? [] : [{ ...item, selectedQty: qty }];
+            });
+            const selectedTotal = selectedItems.reduce(
+              (sum, item) => sum + item.price * item.selectedQty,
               0
             );
+            const handleCopySelected = async () => {
+              const lines = selectedItems.map((item) => {
+                const qty =
+                  item.selectedQty > 1 ? ` ×${item.selectedQty}` : "";
+                return `${item.productName}${qty} — ${formatMoney(
+                  item.price * item.selectedQty,
+                  currency
+                )}`;
+              });
+              lines.push(`Total: ${formatMoney(selectedTotal, currency)}`);
+              try {
+                await navigator.clipboard.writeText(lines.join("\n"));
+                setJustCopied(true);
+                setTimeout(() => setJustCopied(false), 2000);
+              } catch (error) {
+                console.error("Failed to copy to clipboard:", error);
+              }
+            };
             return (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/50 p-3 mt-4">
                 <span className="text-sm text-muted-foreground">
-                  {selectedIds.size} selected ·{" "}
+                  {selectedItems.length} selected ·{" "}
                   <span className="font-semibold text-foreground">
                     {formatMoney(selectedTotal, currency)}
                   </span>
                 </span>
-                {selectedIds.size > 0 && (
-                  <div className="flex items-center gap-2">
+                {selectedItems.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopySelected}
+                    >
+                      {justCopied ? (
+                        <>
+                          <Check className="h-4 w-4 mr-1" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4 mr-1" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
                     <Button
                       variant={showSelectedOnly ? "secondary" : "outline"}
                       size="sm"
@@ -463,6 +562,80 @@ export default function ReceiptDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {/* How many of a multi-quantity item to include in the selection */}
+      <Dialog
+        open={qtyPrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) setQtyPrompt(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>How many?</DialogTitle>
+          </DialogHeader>
+          {qtyPrompt && (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {qtyPrompt.productName} has {qtyPrompt.maxQty} — how many to
+                include?
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={qtyPrompt.qty <= 1}
+                  onClick={() =>
+                    setQtyPrompt({ ...qtyPrompt, qty: qtyPrompt.qty - 1 })
+                  }
+                  aria-label="Decrease quantity"
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <Input
+                  type="number"
+                  min={1}
+                  max={qtyPrompt.maxQty}
+                  value={qtyPrompt.qty}
+                  onChange={(e) => {
+                    const parsed = parseInt(e.target.value, 10);
+                    if (Number.isNaN(parsed)) return;
+                    setQtyPrompt({
+                      ...qtyPrompt,
+                      qty: Math.min(qtyPrompt.maxQty, Math.max(1, parsed)),
+                    });
+                  }}
+                  className="w-20 text-center"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={qtyPrompt.qty >= qtyPrompt.maxQty}
+                  onClick={() =>
+                    setQtyPrompt({ ...qtyPrompt, qty: qtyPrompt.qty + 1 })
+                  }
+                  aria-label="Increase quantity"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setQtyPrompt(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    setSelectedQty(qtyPrompt.itemId, qtyPrompt.qty);
+                    setQtyPrompt(null);
+                  }}
+                >
+                  Select {qtyPrompt.qty}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
