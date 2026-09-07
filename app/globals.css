@@ -128,3 +128,27 @@
     @apply font-sans;
   }
 }
+/*
+ * iOS Safari gives native date/time inputs a fixed intrinsic width and
+ * ignores width: 100%, so they overflow narrow containers on iPhone.
+ * Forcing block layout and resetting the WebKit appearance makes them
+ * respect the container width like any other input.
+ */
+@layer base {
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"],
+  input[type="month"] {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.5rem;
+  }
+}
